@@ -1,0 +1,19 @@
+{
+  "hermes": {
+    "repository": "https://github.com/NousResearch/hermes-agent",
+    "ref_resolved": "main",
+    "commit_sha": "ed1afb082eb3e46cf2edae9d8f68fb67b09ee4df",
+    "commit_url": "https://github.com/NousResearch/hermes-agent/commit/ed1afb082eb3e46cf2edae9d8f68fb67b09ee4df",
+    "commit_timestamp": "2026-11-04T21:38:09Z",
+    "downloaded_at": "2026-11-05T00:10:41.535339+00:00",
+    "archive_url": "https://codeload.github.com/NousResearch/hermes-agent/tar.gz/ed1afb082eb3e46cf2edae9d8f68fb67b09ee4df",
+    "archive_sha256": "975c0f4f49a102dc59a38659596d064877904c821802484729bed91a43558f68",
+    "archive_path": ".local/research/hermes-agent-ed1afb082eb3e46cf2edae9d8f68fb67b09ee4df.tar.gz",
+    "source_path": ".local/hermes-source"
+  },
+  "notify_openapi": {
+    "source": "https://notify.belweave.ai/openapi.json",
+    "retrieved_at": "2026-11-04 America/New_York",
+    "sha256": "0199992597bb7a19c6817df42d2651cfbe79c701348f2f3d1122b21f05b0f0fb"
+  }
+}

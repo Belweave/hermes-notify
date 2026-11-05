@@ -1,0 +1,25 @@
+manifest_version: 2
+name: hermes-notify
+version: "0.1.0"
+description: Phone approvals through Notify, bound to the exact Hermes request.
+author: Preetham Kyanam
+license: MIT
+kind: standalone
+optional_env:
+  - NOTIFY_API_TOKEN
+  - HERMES_NOTIFY_TEST_URL
+config_schema:
+  enabled:
+    type: bool
+    default: false
+    description: Allow this plugin to send Notify approval prompts. Off until explicitly enabled.
+  timeout_seconds:
+    type: int
+    default: 120
+    description: Maximum phone approval wait, also bounded by the Hermes request deadline.
+  device_id:
+    type: str
+    default: ""
+    description: Optional Notify device ID for a single phone. Empty uses account routing.
+provides_tools: []
+provides_hooks: []

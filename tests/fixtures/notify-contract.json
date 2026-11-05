@@ -1,0 +1,439 @@
+{
+  "source": "https://notify.belweave.ai/openapi.json",
+  "retrieved_at": "2026-11-04 America/New_York",
+  "sha256": "0199992597bb7a19c6817df42d2651cfbe79c701348f2f3d1122b21f05b0f0fb",
+  "components": {
+    "schemas": {
+      "Interaction": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "prompt": {
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "approval",
+              "yes_no",
+              "reply"
+            ]
+          },
+          "presentation": {
+            "enum": [
+              "notification",
+              "live_activity"
+            ]
+          },
+          "status": {
+            "enum": [
+              "pending",
+              "approved",
+              "denied",
+              "yes",
+              "no",
+              "replied",
+              "canceled",
+              "expired"
+            ]
+          },
+          "choices": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "response": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "imageUrl": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "url": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "actionDigest": {
+            "type": "string"
+          },
+          "primaryLabel": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "secondaryLabel": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "accepted": {
+            "type": "integer"
+          },
+          "respondingDeviceId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "respondingUserId": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "respondedAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "canceledAt": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "prompt",
+          "kind",
+          "presentation",
+          "status",
+          "choices",
+          "response",
+          "imageUrl",
+          "url",
+          "actionDigest",
+          "primaryLabel",
+          "secondaryLabel",
+          "accepted",
+          "respondingDeviceId",
+          "respondingUserId",
+          "expiresAt",
+          "createdAt",
+          "respondedAt",
+          "canceledAt"
+        ]
+      },
+      "InteractionCreated": {
+        "type": "object",
+        "properties": {
+          "interaction": {
+            "$ref": "#/components/schemas/Interaction"
+          },
+          "accepted": {
+            "type": "integer"
+          },
+          "idempotent": {
+            "type": "boolean"
+          },
+          "liveActivityId": {
+            "type": "string"
+          },
+          "queued": {
+            "type": "integer",
+            "description": "Durably queued device attempts; not provider acceptance or device receipt."
+          },
+          "message": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "interaction",
+          "accepted"
+        ]
+      }
+    }
+  },
+  "request": {
+    "type": "object",
+    "properties": {
+      "title": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 80
+      },
+      "prompt": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 2000
+      },
+      "kind": {
+        "type": "string",
+        "enum": [
+          "approval",
+          "yes_no",
+          "reply"
+        ]
+      },
+      "imageUrl": {
+        "type": "string",
+        "maxLength": 2048,
+        "format": "uri"
+      },
+      "url": {
+        "type": "string",
+        "maxLength": 2048,
+        "format": "uri"
+      },
+      "deviceIds": {
+        "minItems": 1,
+        "maxItems": 50,
+        "type": "array",
+        "items": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        }
+      },
+      "group": {
+        "type": "string",
+        "pattern": "^dgrp_[A-Za-z0-9_-]{8,64}$"
+      },
+      "expiresInSeconds": {
+        "default": 900,
+        "type": "integer",
+        "minimum": 30,
+        "maximum": 86400
+      },
+      "presentation": {
+        "type": "string",
+        "enum": [
+          "notification",
+          "live_activity"
+        ]
+      },
+      "style": {
+        "type": "string",
+        "enum": [
+          "approval",
+          "shell",
+          "verdict",
+          "signal"
+        ]
+      },
+      "design": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "number",
+            "const": 1
+          },
+          "template": {
+            "type": "string",
+            "enum": [
+              "approval",
+              "shell",
+              "verdict",
+              "signal"
+            ]
+          },
+          "appearance": {
+            "type": "string",
+            "enum": [
+              "system",
+              "light",
+              "dark"
+            ]
+          },
+          "density": {
+            "type": "string",
+            "enum": [
+              "comfortable",
+              "compact"
+            ]
+          },
+          "emphasis": {
+            "type": "string",
+            "enum": [
+              "balanced",
+              "title",
+              "status",
+              "progress"
+            ]
+          },
+          "showDetail": {
+            "type": "boolean"
+          },
+          "showSymbol": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "version"
+        ],
+        "additionalProperties": false
+      },
+      "accentColor": {
+        "type": "string",
+        "pattern": "^#[0-9a-fA-F]{6}$"
+      },
+      "primaryLabel": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 24
+      },
+      "secondaryLabel": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 24
+      },
+      "callback": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "maxLength": 2048,
+            "format": "uri"
+          },
+          "token": {
+            "type": "string",
+            "minLength": 16,
+            "maxLength": 512
+          },
+          "target": {
+            "type": "object",
+            "properties": {
+              "connectorId": {
+                "type": "string",
+                "pattern": "^conn_[A-Za-z0-9_-]{8,64}$"
+              },
+              "route": {
+                "type": "string",
+                "pattern": "^(@|[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)$"
+              },
+              "path": {
+                "type": "string",
+                "maxLength": 2048,
+                "pattern": "^\\/[A-Za-z0-9._~!$&'()*+,;=:@%/-]*$"
+              }
+            },
+            "required": [
+              "connectorId",
+              "route",
+              "path"
+            ]
+          }
+        }
+      },
+      "webhookId": {
+        "type": "string",
+        "pattern": "^whk_[A-Za-z0-9_-]{1,100}$"
+      }
+    },
+    "required": [
+      "title",
+      "prompt",
+      "kind"
+    ],
+    "allOf": [
+      {
+        "not": {
+          "required": [
+            "group",
+            "deviceIds"
+          ]
+        }
+      },
+      {
+        "if": {
+          "properties": {
+            "presentation": {
+              "const": "live_activity"
+            }
+          },
+          "required": [
+            "presentation"
+          ]
+        },
+        "then": {
+          "properties": {
+            "kind": {
+              "enum": [
+                "approval",
+                "yes_no"
+              ]
+            },
+            "prompt": {
+              "maxLength": 240
+            },
+            "expiresInSeconds": {
+              "maximum": 28800
+            }
+          },
+          "not": {
+            "anyOf": [
+              {
+                "required": [
+                  "url"
+                ]
+              },
+              {
+                "required": [
+                  "imageUrl"
+                ]
+              }
+            ]
+          }
+        },
+        "else": {
+          "not": {
+            "anyOf": [
+              {
+                "required": [
+                  "style"
+                ]
+              },
+              {
+                "required": [
+                  "design"
+                ]
+              },
+              {
+                "required": [
+                  "accentColor"
+                ]
+              },
+              {
+                "required": [
+                  "primaryLabel"
+                ]
+              },
+              {
+                "required": [
+                  "secondaryLabel"
+                ]
+              }
+            ]
+          }
+        }
+      }
+    ]
+  }
+}
