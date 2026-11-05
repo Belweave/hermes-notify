@@ -1,6 +1,6 @@
 # Draft: add Hermes Pocket to the plugin catalog
 
-Local text for a future catalog PR. The repository is `https://github.com/Belweave/hermes-notify`. Use the complete reviewed commit in [the entry](../plugin-catalog/hermes-notify.yaml) and every screenshot URL. Publish that commit before opening the catalog PR; this local audit does not establish remote reachability. The quoted version is `"0.2.0"`; the SHA is the install pin. The future upstream PR adds only `plugin-catalog/hermes-notify.yaml`, not the standalone implementation. Subsequent updates need a new catalog PR, a version label matching the new pin, and screenshot URLs updated to that pin.
+Draft text for the catalog PR, which has not been opened yet. The repository is public at https://github.com/Belweave/hermes-notify. [The entry](../plugin-catalog/hermes-notify.yaml) is pinned to `8c73716f9adbf6b3e26ec77651cf45508bee3e09`, which is on public `main`, and its screenshot URLs use the same commit. The quoted version is `"0.2.0"`; the SHA is the install pin. The future upstream PR adds only `plugin-catalog/hermes-notify.yaml`, not the standalone implementation. Subsequent updates need a new catalog PR, a version label matching the new pin, and screenshot URLs updated to that pin.
 
 ## What does this PR do?
 
@@ -71,12 +71,12 @@ Worker publication uses durable operation IDs and conditional revisions. Expired
 - Python: **124 tests**. Worker: **22 tests**. App: **42 browser scenarios**. Desktop SDK: **9 tests**. Desktop backend: **27 tests**. Total: **224**.
 - The actual Hermes loader/registry and approval gate, plus local workerd, pass approve/deny/timeout rehearsals. Only approval executes the synthetic action. All paths finish the mock Live Activity. Notify's CLI is absent from the rehearsal path.
 - Native entrypoint skill registration, public session accessor, Unicode/digest agreement and `OPERATION_RESPONSE_EXPIRED` recovery are covered.
-- The official catalog entry validator accepts the structure. The exact candidate and screenshot pins are recorded in the entry; structural validation does not establish remote reachability.
+- The official catalog entry validator accepts the structure. The pinned commit and all three screenshot URLs resolve on GitHub.
 - The [submission checklist](SUBMISSION-CHECKLIST.md) contains the complete CLI output and per-guideline evidence. Commit-specific receipts remain outside the committed tree to avoid a self-referencing SHA. The clean candidate export must pass `hermes plugins validate --install-deps` and the official payload scan before its pin is submitted; [verification](VERIFICATION.md) explains the reviewed development-helper warning.
 
 The complete staged package passes all 16 Hermes admission checks, with a `safe` security scan and no runtime core override. Its one reviewed warning names development helpers: `scripts/release_demo.py` uses the real manager and session setters to simulate the host; `scripts/spike.py` uses the manager; `scripts/validate_package.py` invokes the admission checker. These imports exercise the host in explicitly invoked local tooling. Production registration uses only the public surfaces listed above. The lightweight environment also reports absent optional built-in dependencies; its collision check alone is not a full production-host boot. The final CLI receipt must retain these diagnostics rather than suppress them.
 
-The full workflow has only been rehearsed with synthetic Notify responses. A separate authorized phone test passed: one accepted device and an approved, correlated Hermes `once` decision. A deployed Worker, verified owner, real phone sign-in, deep link, progress display, live webhook behavior and complete filmed workflow still need verification. Official native Hermes mobile plugin rendering is unverified; Notify supplies the phone App surface. This pass does not publish a candidate, open a catalog PR, post a video or submit the form.
+The full workflow has only been rehearsed with synthetic Notify responses. A separate authorized phone test passed: one accepted device and an approved, correlated Hermes `once` decision. A deployed Worker, verified owner, real phone sign-in, deep link, progress display, live webhook behavior and complete filmed workflow still need verification. Official native Hermes mobile plugin rendering is unverified; Notify supplies the phone App surface. The catalog PR, video post and form submission are still pending.
 
 ## Screenshots
 
@@ -88,7 +88,7 @@ These are actual Chromium captures of the shipped App code with synthetic API/au
 
 ![Completed release workspace](screenshots/shipped-phone.png)
 
-Before posting this text in the external catalog PR, replace the relative image paths above with the exact pinned `raw.githubusercontent.com` URLs from the catalog entry. [Screenshot provenance](screenshots/README.md) identifies each local scenario.
+The external PR body uses the pinned `raw.githubusercontent.com` URLs from the catalog entry instead of these relative paths. [Screenshot provenance](screenshots/README.md) identifies each local scenario.
 
 ## License and provenance
 

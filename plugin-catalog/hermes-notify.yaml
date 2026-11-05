@@ -1,5 +1,5 @@
 # Catalog submission draft for NousResearch/hermes-agent. Not yet submitted.
-# Pinned to the locally validated candidate commit 8c73716f9adbf6b3e26ec77651cf45508bee3e09; publish this exact commit to Belweave/hermes-notify before submission.
+# Pinned to 8c73716f9adbf6b3e26ec77651cf45508bee3e09, published on Belweave/hermes-notify main.
 name: hermes-notify
 title: Hermes Pocket
 repo: https://github.com/Belweave/hermes-notify

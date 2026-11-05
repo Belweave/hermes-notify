@@ -53,7 +53,7 @@ node --check desktop/plugin.js
 node --experimental-vm-modules --test desktop/tests/plugin.test.mjs
 desktop/tests/.venv/bin/python -m pytest -q dashboard/tests
 desktop/tests/.venv/bin/python desktop/tests/catalog_check.py
-desktop/tests/.venv/bin/python /Users/preetham/.codex/skills/.system/skill-creator/scripts/quick_validate.py skills/notify-release-workspace
+desktop/tests/.venv/bin/python ~/.codex/skills/.system/skill-creator/scripts/quick_validate.py skills/notify-release-workspace
 ```
 
 Results: **9 JavaScript tests and 26 backend tests passed**, and the skill validator passed. The JavaScript suite checks exports against the pinned real SDK, executes that source's actual import scanner, runs ESM registration with a small SDK/React harness, and tests route-switch/abort/unload races, polling bounds, missing setup, safe link clicks and font integrity. The backend suite imports the real public `PluginState`, exercises FastAPI routes, proves context-local profile selection reaches a sync handler, and covers no-directory-creation, read-only methods, projection, size/shape limits, malformed JSON, symlinks, directory/FIFO rejection and safe errors.

@@ -1,6 +1,6 @@
 # Local verification
 
-Commands run in `/Users/preetham/Code/hermes-notify/app`:
+Commands run in `app/` of a repository checkout:
 
 ```sh
 npm install --ignore-scripts --no-audit --no-fund

@@ -131,7 +131,7 @@ This research did not implement or claim that mock HTTP round trip. The upstream
 For a local package, use a disposable home and the pinned Hermes installation. The following is a development recipe, not a command log:
 
 ```sh
-hermes_notify_repo=/Users/preetham/Code/hermes-notify
+hermes_notify_repo=~/Code/hermes-notify
 hermes_probe_home=$(mktemp -d "${TMPDIR:-/tmp}/hermes-notify-probe.XXXXXX")
 mkdir -p "$hermes_probe_home/plugins"
 ln -s "$hermes_notify_repo" "$hermes_probe_home/plugins/hermes-notify"
@@ -173,8 +173,8 @@ Logs and probes are local research receipts:
 Reproduce the focused suite from `.local/hermes-source` using:
 
 ```sh
-HERMES_HOME=/Users/preetham/Code/hermes-notify/.local/research/test-home \
-HERMES_PYTHON=/Users/preetham/Code/hermes-notify/.local/research/venv/bin/python \
+HERMES_HOME=~/Code/hermes-notify/.local/research/test-home \
+HERMES_PYTHON=~/Code/hermes-notify/.local/research/venv/bin/python \
 HERMES_TEST_FILE_RETRIES=0 \
 scripts/run_tests.sh -j 1 --file-timeout 60 \
   tests/hermes_cli/test_approval_transport.py \

@@ -95,11 +95,14 @@ Source URLs, retrieval time and SHA-256 hashes are in [SUBMISSION-SOURCES.json](
 - **T5 PASS**: Screenshots/logs are provided, with synthetic App captures clearly distinguished from live phone evidence. Evidence: `docs/CATALOG_PR.md:81`.
 - **T6 PASS**: MIT authorship license and SDK/font third-party licenses are preserved. Evidence: `LICENSE:1`.
 
+## Published candidate
+
+- **P1 DONE**: `8c73716f9adbf6b3e26ec77651cf45508bee3e09` is on public `main` at https://github.com/Belweave/hermes-notify. An anonymous clone checks it out, `gh api repos/Belweave/hermes-notify/commits/<sha>` resolves it, and all three pinned screenshot URLs return HTTP 200 (checked November 4, 2026 ET).
+
 ## Pending external evidence and actions
 
 These are not marked pass or fixed because they have not been completed by this local audit:
 
-- Publish the final candidate commit and verify its anonymous clone and pinned screenshot URLs. An existing origin or earlier published commit does not establish the new candidate is public.
 - Deploy/configure the Worker and verify real App sign-in, deep links, progress, reply and release result on the phone. Only the separate native approval test is proven live.
 - Run the model-driven skill flow on the authorized configured host. No LLM execution is implied by the deterministic skill/registration tests.
 - Film and measure the actual under-90-second demo; post it on X tagging `@NousResearch`.
@@ -251,7 +254,7 @@ Exit status: `0`. Stderr: empty (0 bytes). Full stdout:
 124 passed in 30.36s
 
 hermes plugins doctor <clean-export> --ci
-Plugin Doctor: /Users/preetham/Code/hermes-notify/.local/submission-audit/head
+Plugin Doctor: <repo>/.local/submission-audit/head
   manifest: hermes-notify 0.2.0 (standalone)
   OK: runtime discovery, manifest parsing, import, and registration passed
   registrations: 6 tool(s), 2 hook(s)
