@@ -1,15 +1,18 @@
 import json
+import importlib.util
 import subprocess
 import sys
 import threading
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from hermes_cli.approval_transport import ApprovalRequest, invoke_approval_transport
 from hermes_notify.bridge import ApprovalBridge
 from hermes_notify.client import NotifyClient, NotifyError, TEST_TOKEN
 from hermes_notify.ledger import Ledger
+from scripts.mock_notify import MockNotify
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -164,6 +167,36 @@ def test_real_token_cannot_be_sent_to_mock():
         NotifyClient("pretend-real-token", "http://127.0.0.1:8080/api/agent")
     with pytest.raises(NotifyError):
         NotifyClient(TEST_TOKEN)
+
+
+def test_plugin_captures_profile_secret_before_transport_worker(tmp_path, monkeypatch):
+    from agent.secret_scope import set_secret_scope, reset_secret_scope
+    spec = importlib.util.spec_from_file_location("profile_test_notify", ROOT / "__init__.py",
+                                                 submodule_search_locations=[str(ROOT)])
+    plugin = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = plugin
+    spec.loader.exec_module(plugin)
+    transports, cleanup = {}, []
+    ctx = SimpleNamespace(
+        get_config=lambda key, default=None: {"enabled": True}.get(key, default),
+        state=SimpleNamespace(data_dir=tmp_path),
+        register_approval_transport=lambda name, callback: transports.update({name: callback}),
+        on_unload=cleanup.append,
+    )
+    mock = MockNotify()
+    with mock.serve() as url:
+        monkeypatch.setenv("NOTIFY_API_TOKEN", "wrong-profile-token")
+        monkeypatch.setenv("HERMES_NOTIFY_TEST_URL", url)
+        scope = set_secret_scope({"NOTIFY_API_TOKEN": TEST_TOKEN})
+        try:
+            plugin.register(ctx)
+        finally:
+            reset_secret_scope(scope)
+        # This worker has no secret scope; registration already captured the correct key.
+        result = invoke_approval_transport(transports["notify"], request(), timeout_seconds=2)
+        assert result.choice == "once"
+        cleanup[0]()
+        assert transports["notify"](request()).choice == "deny"
 
 
 @pytest.mark.parametrize("answer", ["approve", "deny", "timeout", "disabled"])

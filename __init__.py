@@ -13,7 +13,10 @@ def register(ctx):
     # The catalog's recording context deliberately has no persistent state.
     state = getattr(ctx, "state", None)
     data_dir = state.data_dir if state is not None else None
-    token = os.environ.get("NOTIFY_API_TOKEN", "") if enabled else ""
+    token = ""
+    if enabled:
+        from agent.secret_scope import get_secret
+        token = get_secret("NOTIFY_API_TOKEN", "")
     test_url = os.environ.get("HERMES_NOTIFY_TEST_URL") if enabled else None
     stopped = threading.Event()
     ctx.on_unload(stopped.set)

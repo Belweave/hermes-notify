@@ -10,13 +10,13 @@ The approval spike is ready for one explicitly authorized live phone test. **No 
 - Plugin unload removed the registered transport. The default-disabled configuration produced no mock push.
 - The unit/integration suite covers changed interaction IDs, digests, kinds, titles and prompts; opaque digest values; negative and missing responses; timeout; duplicate/reopened requests; concurrent ledger claims; unload while waiting; late host results; unknown create outcomes; large prompts; credential/endpoint separation; and mock responses checked against the captured public OpenAPI schemas.
 
-The local suite passed **35 tests**. The runtime package passed all **15** Hermes catalog validation checks with no warnings. Validation of the full authored tree also passes all 15 checks, with one warning: the development-only `scripts/spike.py` harness imports Hermes manager and guard internals to exercise real host behavior. Those imports are not in the plugin entrypoint or runtime import path; do not present the harness as a stable public Hermes CLI. The isolation report correctly says `in_process`: approval transports hold a live host request channel. This is not an isolated or sandboxed plugin.
+The local suite passed **36 tests**, including a scoped-secret test where the correct profile key survives into a worker while a different process-wide key is present. Hermes Plugin Doctor passed real discovery, manifest parsing, import, and registration. The runtime package passed all **15** catalog validation checks with no warnings. Validation of the full authored tree also passes all 15 checks, with one warning: the development-only `scripts/spike.py` harness imports Hermes manager and guard internals to exercise real host behavior. Those imports are not in the plugin entrypoint or runtime import path; do not present the harness as a stable public Hermes CLI. The isolation report correctly says `in_process`: approval transports hold a live host request channel. This is not an isolated or sandboxed plugin.
 
 The pinned source is `ed1afb082eb3e46cf2edae9d8f68fb67b09ee4df`. The same mocked approval path also passed against the installed source at `b200f5bc60e31588ba2cb60e288029c4a54ba5fa`. Catalog CLI validation used that installed Hermes executable and a separate local data root. Source-level validation used the pinned archive. No normal Hermes profile configuration was edited.
 
 A single `/usr/bin/time -l` run of the complete isolated harness against installed Hermes took **1.23 seconds** and reported **71,450,624 bytes** maximum resident set size. This includes Hermes imports, the mock HTTP server, and its shutdown. It is a whole-process observation, not the plugin's incremental memory cost or a production benchmark.
 
-The runtime researcher separately ran focused upstream tests: **116 passed, 1 failed**. The failure was a macOS portable-validator string assertion, diagnosed in [runtime notes](notes/hermes-runtime.md). It is separate from this plugin's passing checks.
+The runtime researcher separately ran focused upstream tests: **116 passed, 1 failed**. The failure was a macOS portable-validator string assertion, diagnosed in [runtime notes](notes/hermes-runtime.md). It is separate from this plugin's passing checks. A public HTTPS fetch using the spike's Python runtime also passed with certificate verification enabled; this read a public JWKS and sent no credentials.
 
 ## Reproduce
 
@@ -29,7 +29,8 @@ uv sync --only-group dev
 .venv/bin/python scripts/spike.py --answer timeout
 .venv/bin/python scripts/spike.py --disabled
 .venv/bin/python scripts/stage_plugin.py
-HERMES_HOME="$PWD/.local/validation-home" hermes plugins validate "$PWD/.local/package/hermes-notify" --json
+HERMES_HOME="$PWD/.local/validation-home" hermes plugins validate "$PWD/.local/package/hermes-notify" --install-deps --json
+HERMES_HOME="$PWD/.local/validation-home" hermes plugins doctor "$PWD/.local/package/hermes-notify" --ci
 ```
 
 The package stage contains authored runtime, docs, and development files. Validate that directory, or a clean Git export, rather than the working folder with its downloaded Hermes source and disposable environments. The admission scanner traverses untracked research content too; `.gitignore` is not its exclusion policy.
