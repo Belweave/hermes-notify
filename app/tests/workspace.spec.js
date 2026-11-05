@@ -1,77 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-const PROJECT = 'release-demo';
-const API = `/api/projects/${PROJECT}`;
-const SESSION = `/auth/${PROJECT}/session`;
-
-// Private-looking sample content exists only here, never in app/public or the
-// static server. Route interception is the only fixture/auth seam.
-function fixture(overrides = {}) {
-  return {
-    schemaVersion: 1, project: PROJECT, runId: 'run_phone_01', revision: 4,
-    name: 'Pocket release', version: '1.4.0', status: 'running', stage: 'Verification',
-    summary: 'The candidate is built. Checking the phone flow before the release.',
-    progress: 0.625,
-    checks: [
-      { label: 'Build & type checks', status: 'passed' },
-      { label: 'Session and reply tests', status: 'passed' },
-      { label: 'Phone layout review', status: 'running' },
-      { label: 'Release health check', status: 'pending' },
-    ],
-    artifacts: [
-      { label: 'Release candidate', url: 'https://example.com/releases/1.4.0' },
-      { label: 'Verification report', url: 'https://example.com/reports/phone' },
-    ],
-    notes: 'Release\nKeeps the current decision and release evidence together on your phone. Replies return to the original run.\n\nRollback\nRestore the previous release artifact and verify the health check before reopening traffic.',
-    updatedAt: '2026-11-04T22:14:00Z', appId: 'app_phone_demo', approval: null,
-    ...overrides,
-  };
-}
-
-async function mock(page, options = {}) {
-  let workspace = options.workspace || fixture({ project: options.project || PROJECT });
-  let signedIn = options.signedIn ?? true;
-  const requests = [];
-  const replies = [];
-  const project = options.project || PROJECT;
-  await page.route('**/*', async (route) => {
-    const request = route.request();
-    const url = new URL(request.url());
-    if (url.hostname !== '127.0.0.1') throw new Error(`Unexpected external request: ${url.origin}`);
-    if (url.pathname === '/auth.js') {
-      return route.fulfill({ contentType: 'text/javascript', body: options.authModule || 'export async function connect(project) { return { authenticated: true, project }; }' });
-    }
-    if (!url.pathname.startsWith('/api/') && !url.pathname.startsWith('/auth/')) return route.continue();
-    requests.push({ path: url.pathname, method: request.method() });
-    if (url.pathname === `/auth/${project}/session`) {
-      if (request.method() === 'DELETE') { signedIn = false; return route.fulfill({ json: { ok: true } }); }
-      return route.fulfill({ status: signedIn ? 200 : 401, json: signedIn ? { ok: true, authenticated: true, project } : { error: 'sign_in_required' } });
-    }
-    if (url.pathname === `/api/projects/${project}/replies` && request.method() === 'POST') {
-      const reply = request.postDataJSON();
-      replies.push(reply);
-      if (options.replyHandler) return options.replyHandler(route, reply, replies.length);
-      return route.fulfill({ json: { id: reply.id, cursor: replies.length, accepted: true } });
-    }
-    if (url.pathname === `/api/projects/${project}` && request.method() === 'GET') {
-      if (options.workspaceHandler) return options.workspaceHandler(route, workspace);
-      return route.fulfill({ json: { workspace, revision: workspace.revision } });
-    }
-    throw new Error(`Unexpected API request: ${request.method()} ${url.pathname}`);
-  });
-  return {
-    requests, replies,
-    setWorkspace: (next) => { workspace = next; },
-    signIn: () => { signedIn = true; },
-    signOut: () => { signedIn = false; },
-    dataRequests: () => requests.filter((request) => request.path === `/api/projects/${project}`),
-  };
-}
-
-async function open(page, project = PROJECT) {
-  await page.goto(`/projects/${project}`);
-  await expect(page.locator('#release-name')).toBeVisible();
-}
+import { PROJECT, API, SESSION, fixture, mock, open } from './support/workspace.js';
 
 test('public shell and signed-out view contain no release data or fixture bypass', async ({ page, request }, testInfo) => {
   const shell = await (await request.get(`/projects/${PROJECT}?mock=shipped`)).text();
@@ -111,7 +40,7 @@ test('URL project determines both session and data routes; invalid paths never r
   await open(page, 'another-project');
   expect(state.requests.map((request) => request.path)).toEqual(['/auth/another-project/session', '/api/projects/another-project']);
   await page.goto('/projects/UPPERCASE');
-  await expect(page.getByRole('heading', { name: 'Open a project link' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Page not found' })).toBeVisible();
   expect(state.requests).toHaveLength(2);
 });
 
@@ -146,7 +75,7 @@ test('native approval is explained and linked; a written approve reply grants no
   }) });
   await open(page);
   await expect(page.getByRole('heading', { name: 'Publish version 1.4.0' })).toBeVisible();
-  await expect(page.getByRole('link', { name: 'Open Notify ↗' })).toHaveAttribute('href', 'https://notify.belweave.ai');
+  await expect(page.getByRole('link', { name: 'Open Notify' })).toHaveAttribute('href', 'https://notify.belweave.ai');
   await expect(page.getByRole('button', { name: /approve|deny/i })).toHaveCount(0);
   await expect(page.locator('#native-hint')).toContainText('Written replies here do not approve it.');
   await page.screenshot({ path: testInfo.outputPath('awaiting-approval-phone.png'), fullPage: true });
@@ -298,7 +227,8 @@ test('workspace strings remain text, never HTML', async ({ page }) => {
   await open(page);
   await expect(page.locator('#release-name')).toHaveText(attack);
   await expect(page.locator('#release-notes')).toHaveText(attack);
-  await expect(page.locator('#workspace img')).toHaveCount(0);
+  await expect(page.locator('#workspace img:not([src="/logos/notify.svg"])')).toHaveCount(0);
+  await expect(page.locator('#workspace img')).toHaveCount(1);
   expect(await page.evaluate(() => window.injected)).toBeUndefined();
 });
 
@@ -386,7 +316,7 @@ for (const width of [360, 768, 1440]) {
       approval: { requestId: 'host_request_01', digest: 'a'.repeat(64), title: 'Publish the release candidate', status: 'pending' },
     }) });
     await open(page);
-    await expect(page.getByRole('link', { name: 'Reply ↓', exact: true })).toHaveAttribute('href', '#reply');
+    await expect(page.getByRole('link', { name: 'Reply', exact: true })).toHaveAttribute('href', '#reply');
     await page.evaluate(() => document.fonts.ready);
     const result = await page.evaluate(() => ({
       overflow: document.documentElement.scrollWidth > window.innerWidth,

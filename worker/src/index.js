@@ -2,6 +2,7 @@ import { createRemoteJWKSet } from '../vendor/chunk-JKIZH22G.mjs';
 import { PocketService } from './service.js';
 import { fail, json, originFor, safe } from './http.js';
 import { SLUG } from './validate.js';
+import { RECOVERY_ASSETS, secureAsset, isDocument, errorPage } from './pages.js';
 
 // This is a fixed official public key endpoint, never an operator or user URL.
 const notifyKeys = createRemoteJWKSet(new URL('https://notify.belweave.ai/.well-known/jwks.json'));
@@ -15,6 +16,11 @@ export class PocketStore {
 export async function route(request, env) {
   const url = new URL(request.url);
   if (url.pathname === '/api/health' && request.method === 'GET') return json({ service: 'hermes-pocket', schemaVersion: 1 });
+  // These inert public assets also style a configuration/origin error. Nothing
+  // executable or private bypasses the canonical-origin check below.
+  if (['GET', 'HEAD'].includes(request.method) && RECOVERY_ASSETS.has(url.pathname)) {
+    return secureAsset(await env.ASSETS.fetch(request));
+  }
   originFor(request, env);
   if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/auth/')) {
     return env.POCKET.get(env.POCKET.idFromName('hermes-pocket-v1')).fetch(request);
@@ -25,15 +31,16 @@ export async function route(request, env) {
     if (!SLUG.test(project)) fail(404, 'not_found');
     url.pathname = '/index.html';
   }
+  if (url.pathname === '/') url.pathname = '/index.html';
   // Restrict assets to public outputs; unknown API paths can never fall through
   // to an SPA document. The build copies no server source or credentials.
   const response = await env.ASSETS.fetch(new Request(url, { method: request.method }));
-  const secured = new Response(response.body, response);
-  secured.headers.set('cache-control', 'no-store');
-  secured.headers.set('x-content-type-options', 'nosniff');
-  secured.headers.set('referrer-policy', 'no-referrer');
-  secured.headers.set('content-security-policy', "default-src 'self'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'");
-  return secured;
+  return secureAsset(response);
 }
 
-export default { fetch: (request, env) => safe(() => route(request, env)) };
+export default {
+  async fetch(request, env) {
+    const response = await safe(() => route(request, env));
+    return response.status >= 400 && isDocument(request) ? errorPage(response.status, request.method) : response;
+  },
+};

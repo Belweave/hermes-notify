@@ -105,13 +105,14 @@ async function loadWorkspace({ manual = false } = {}) {
     let message = error instanceof InvalidData
       ? 'The workspace data could not be verified. Try refreshing.'
       : error instanceof RequestError && error.status === 404
-        ? 'This workspace is unavailable. It may not have been published yet.'
+        ? 'No release has been published for this project. Ask Hermes to publish one, then refresh this page.'
         : 'Could not reach the workspace. Check your connection and try again.';
     if (workspace) {
       message += failures >= 5 ? ' Automatic updates paused. Refresh to retry.' : ' Showing the last verified release.';
       sync(message, 'error');
     } else {
-      gate({ title: 'Could not load this release', message, retry: true, tone: 'error' });
+      const missing = error instanceof RequestError && error.status === 404;
+      gate({ title: missing ? 'No release published' : 'Could not load this release', message, retry: true, tone: missing ? '' : 'error' });
     }
   } finally {
     if (current === generation) {
@@ -133,6 +134,7 @@ async function openWorkspace() {
     if (!validateSession(result, project)) { signedOut(); return; }
     authenticated = true;
     el('private-actions').hidden = false;
+    gate({ title: 'Opening workspace', message: 'Loading the latest release…' });
   } catch (error) {
     if (current !== generation) return;
     if (isAuthError(error)) signedOut();
@@ -297,5 +299,5 @@ if (project) {
   openWorkspace();
 } else {
   clearPrivate();
-  gate({ title: 'Open a project link', message: 'Use a workspace link in the form /projects/your-project from Notify or Hermes.' });
+  gate({ title: 'Open a project link', message: 'Open a project workspace from Notify, or ask Hermes to publish a release and share its link.', help: true });
 }

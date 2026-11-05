@@ -1,0 +1,20 @@
+[
+  {
+    "provider": "Nous Research / Hermes Agent",
+    "file": "nous-research.png",
+    "source": "https://nousresearch.com/assets/nous-web/favicon.png",
+    "verifiedOn": "https://nousresearch.com/",
+    "retrievedAt": "2026-11-05",
+    "sha256": "88d85717651a6c44dfdd25fd485c5e4a25a3ef09411dedef4429c8840cc9e500",
+    "note": "Official woman mark, linked as the favicon on the Nous Research site. Original PNG bytes, displayed at or below native size. Identifies the Hermes integration; the mark remains the property of Nous Research. No endorsement or separate trademark license is claimed."
+  },
+  {
+    "provider": "Notify",
+    "file": "notify.svg",
+    "source": "https://notify.belweave.ai/brand/mark-dark.svg",
+    "verifiedOn": "https://notify.belweave.ai/",
+    "retrievedAt": "2026-11-05",
+    "sha256": "7ada69443a04e3254994e83c28caf3608e556631827797ab01cc42f6e5128caf",
+    "note": "Official dark mark used in the Notify site header. Original SVG bytes, with no recoloring or cropping. Identifies sign-in and the connected Notify service. Notify and its mark remain the property of belweave; no separate trademark license is claimed."
+  }
+]

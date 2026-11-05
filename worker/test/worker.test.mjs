@@ -552,6 +552,30 @@ test('production entry has no test route or environment verification-key bypass'
   const request = (path, init) => mf.dispatchFetch('https://hermes-pocket.example.workers.dev' + path, init);
   const shell = await status(await request('/projects/synthetic'), 200);
   assert.match(await shell.text(), /Sign in with Notify/);
+  const documentHeaders = { accept: 'text/html' };
+  const root = await status(await request('/', { headers: documentHeaders }), 200);
+  assert.match(await root.text(), /PaperMono-Variable\.woff2/);
+  for (const path of ['/not-a-page', '/projects/INVALID']) {
+    const missing = await status(await request(path, { headers: documentHeaders }), 404);
+    assert.match(missing.headers.get('content-type'), /text\/html/);
+    assert.match(await missing.text(), /Page not found/);
+  }
+  const unavailable = await status(await fetch('/', { headers: documentHeaders }), 503);
+  assert.match(await unavailable.text(), /Workspace temporarily unavailable/);
+  // Public recovery assets remain readable when canonical-origin configuration
+  // is missing, without exposing executable code, private data or SDK paths.
+  for (const path of ['/styles.css', '/fonts/PaperMono-Variable.woff2', '/logos/nous-research.png', '/logos/notify.svg']) {
+    await status(await fetch(path), 200);
+  }
+  await status(await fetch('/app.js'), 503);
+  await status(await fetch('/auth.js'), 503);
+  const apiError = await status(await request('/api/no-such-route', { headers: documentHeaders }), 404);
+  assert.match(apiError.headers.get('content-type'), /application\/json/);
+  const authError = await request('/auth/no-such-route', { headers: documentHeaders });
+  assert.match(authError.headers.get('content-type'), /application\/json/);
+  const head = await request('/not-a-page', { method: 'HEAD', headers: documentHeaders });
+  assert.equal(head.status, 404);
+  assert.equal(await head.text(), '');
   for (const path of ['/app.js', '/auth.js', '/styles.css', '/vendor/notify/browser.mjs', '/fonts/PaperMono-Variable.woff2', '/fonts/LICENSE.txt']) {
     await status(await request(path), 200);
   }

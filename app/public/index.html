@@ -3,41 +3,40 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-    <meta name="theme-color" content="#f1f4f2">
+    <meta name="theme-color" content="#f7f8f5">
     <meta name="referrer" content="no-referrer">
-    <meta name="description" content="Your release workspace in Hermes Pocket.">
+    <meta name="description" content="Release status, evidence and replies in Hermes Pocket.">
     <title>Release workspace · Hermes Pocket</title>
-    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <link rel="icon" href="/logos/nous-research.png" type="image/png">
     <link rel="preload" href="/fonts/PaperMono-Variable.woff2" as="font" type="font/woff2" crossorigin>
     <link rel="stylesheet" href="/styles.css">
+    <noscript><link rel="stylesheet" href="/no-script.css"></noscript>
     <script type="module" src="/app.js"></script>
   </head>
   <body>
     <a class="skip-link" href="#main">Skip to workspace</a>
     <div class="page">
       <header class="site-header">
-        <span class="brand"><span class="brand-mark" aria-hidden="true">h.</span>hermes pocket</span>
+        <span class="brand"><img class="brand-mark" src="/logos/nous-research.png" width="32" height="32" alt="Nous Research">hermes pocket</span>
         <nav id="private-actions" aria-label="Workspace actions" hidden>
-          <a class="text-control" href="#reply">Reply ↓</a>
+          <a class="text-control" id="reply-link" href="#reply">Reply</a>
           <button class="text-control" id="sign-out" type="button">Sign out</button>
         </nav>
       </header>
       <main id="main" tabindex="-1">
         <p class="project-path" id="project-label"></p>
         <section id="gate" class="gate" aria-labelledby="gate-title">
-          <p class="eyebrow">Release workspace</p>
           <h1 id="gate-title">Opening workspace</h1>
           <p id="gate-message" role="status">Checking your sign-in…</p>
           <div class="gate-actions">
-            <button class="button primary" id="sign-in" type="button" hidden>Sign in with Notify</button>
+            <button class="button provider-control" id="sign-in" type="button" hidden><img src="/logos/notify.svg" width="18" height="22" alt=""><span>Sign in with Notify</span></button>
             <button class="button" id="retry-open" type="button" hidden>Try again</button>
-            <a class="text-control" id="auth-help" href="https://notify.belweave.ai" target="_blank" rel="noopener noreferrer" hidden>Open Notify ↗</a>
+            <a class="text-control provider-control" id="auth-help" href="https://notify.belweave.ai" target="_blank" rel="noopener noreferrer" hidden><img src="/logos/notify.svg" width="18" height="22" alt="">Open Notify</a>
           </div>
           <p class="muted small" id="gate-hint" hidden>Open this workspace in Notify on your phone. Sign-in requires Notify's secure connection; a regular browser may not support it.</p>
         </section>
         <article id="workspace" aria-labelledby="release-name" hidden>
           <header class="release-heading">
-            <p class="eyebrow">Release workspace</p>
             <div class="release-title">
               <h1 id="release-name"></h1>
               <p class="version" id="release-version"></p>
@@ -60,30 +59,28 @@
           <div class="workbench">
             <div class="release-record">
               <section class="decision" id="decision" aria-labelledby="decision-title">
-                <p class="eyebrow">Current decision</p>
                 <h2 id="decision-title"></h2>
                 <p id="decision-body"></p>
-                <a class="button" id="native-approval" href="https://notify.belweave.ai" target="_blank" rel="noopener noreferrer" hidden>Open Notify ↗</a>
+                <a class="button provider-control" id="native-approval" href="https://notify.belweave.ai" target="_blank" rel="noopener noreferrer" hidden><img src="/logos/notify.svg" width="18" height="22" alt="">Open Notify</a>
                 <p class="small" id="native-hint" hidden>Open this project's pending approval in the Notify inbox. Written replies here do not approve it.</p>
               </section>
               <section class="record-section" aria-labelledby="checks-title">
-                <header class="section-heading"><h2 id="checks-title"><span class="section-index" aria-hidden="true">01</span>Release checks</h2><span class="small muted" id="check-count"></span></header>
+                <header class="section-heading"><h2 id="checks-title">Release checks</h2><span class="small muted" id="check-count"></span></header>
                 <ul class="checks" id="checks"></ul>
-                <p class="muted" id="checks-empty" hidden>No checks have been reported yet.</p>
+                <p class="muted" id="checks-empty" hidden>No checks have been reported. Ask Hermes to run and publish the release checks.</p>
               </section>
               <section class="record-section" aria-labelledby="notes-title">
-                <header class="section-heading"><h2 id="notes-title"><span class="section-index" aria-hidden="true">02</span>Release &amp; rollback notes</h2></header>
+                <header class="section-heading"><h2 id="notes-title">Release &amp; rollback notes</h2></header>
                 <div class="release-notes" id="release-notes"></div>
               </section>
               <section class="record-section" aria-labelledby="artifacts-title">
-                <header class="section-heading"><h2 id="artifacts-title"><span class="section-index" aria-hidden="true">03</span>Artifacts</h2><span class="small muted" id="artifact-count"></span></header>
+                <header class="section-heading"><h2 id="artifacts-title">Artifacts</h2><span class="small muted" id="artifact-count"></span></header>
                 <ul class="artifacts" id="artifacts"></ul>
-                <p class="muted" id="artifacts-empty" hidden>No artifacts have been published yet.</p>
+                <p class="muted" id="artifacts-empty" hidden>No artifacts have been published. Ask Hermes to attach the release files or evidence links.</p>
               </section>
             </div>
             <aside class="reply-column">
               <section id="reply" class="reply-section" aria-labelledby="reply-title">
-                <p class="eyebrow">Back to Hermes</p>
                 <h2 id="reply-title">Leave a reply</h2>
                 <p class="muted small">Add context or ask for a change to this release.</p>
                 <form id="reply-form">
@@ -102,9 +99,9 @@
           </div>
           <footer class="release-footer"><span id="revision-label"></span><time id="updated-at"></time></footer>
         </article>
-        <noscript><p class="noscript">JavaScript is needed to sign in and load this private workspace. Enable it, then reload this page.</p></noscript>
+        <noscript><section class="gate noscript" aria-labelledby="script-title"><h1 id="script-title">Enable JavaScript</h1><p>JavaScript is needed to sign in and load this private workspace. Enable it, then reload this page.</p><div class="gate-actions"><a class="button" href="">Reload page</a></div></section></noscript>
       </main>
-      <footer class="site-footer"><span>From Hermes. Within reach.</span><span>pocket / release</span></footer>
+      <footer class="site-footer"><span>Release workspace</span><span class="provider-credit"><img src="/logos/notify.svg" width="16" height="20" alt="">Notify integration</span></footer>
     </div>
   </body>
 </html>

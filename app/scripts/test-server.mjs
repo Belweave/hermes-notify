@@ -1,34 +1,49 @@
-// Static test host only. All authenticated responses are Playwright route
-// interceptions. This server never simulates a session or serves private data.
+// Loopback-only test host for the built production Worker. Private API/session
+// fixtures are Playwright route interceptions, never production routes or data.
 import { createServer } from 'node:http';
-import { readFile, stat } from 'node:fs/promises';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { resolve, extname, sep } from 'node:path';
+import { createRequire } from 'node:module';
+import { spawnSync } from 'node:child_process';
 
-const root = fileURLToPath(new URL('../public/', import.meta.url));
+const root = fileURLToPath(new URL('../../', import.meta.url));
+const require = createRequire(new URL('../../worker/package.json', import.meta.url));
+const { Miniflare } = require('miniflare');
+const build = spawnSync(process.execPath, [resolve(root, 'worker/scripts/isolated.mjs'), 'build'], { stdio: 'inherit' });
+if (build.status !== 0) throw new Error('Production Worker build failed');
+const storage = await mkdtemp(join(tmpdir(), 'pocket-browser-'));
 const port = Number(process.env.APP_TEST_PORT || 4179);
-const types = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.woff2': 'font/woff2', '.svg': 'image/svg+xml', '.txt': 'text/plain; charset=utf-8' };
+const origin = 'https://hermes-pocket.example.workers.dev';
+const mf = new Miniflare({
+  cf: false, scriptPath: resolve(root, 'worker/dist/worker.mjs'), modulesRoot: resolve(root, 'worker/dist'), modules: true,
+  compatibilityDate: '2026-07-30', compatibilityFlags: ['nodejs_compat'],
+  durableObjects: { POCKET: { className: 'PocketStore', useSQLite: true } }, durableObjectsPersist: join(storage, 'sqlite'),
+  outboundService: () => { throw new Error('Outbound network is forbidden in browser tests'); },
+  assets: { directory: resolve(root, 'worker/dist/public'), binding: 'ASSETS',
+    routerConfig: { has_user_worker: true, invoke_user_worker_ahead_of_assets: true },
+    assetConfig: { html_handling: 'none', not_found_handling: 'none' } },
+});
+await mf.ready;
 const server = createServer(async (request, response) => {
   try {
-    const path = decodeURIComponent(new URL(request.url, 'http://127.0.0.1').pathname);
-    if (request.method !== 'GET' || path.startsWith('/api/') || path.startsWith('/auth/')) {
-      response.writeHead(404).end();
-      return;
-    }
-    const relative = path === '/' || path.startsWith('/projects/') ? 'index.html' : path.slice(1);
-    const file = resolve(root, relative);
-    if (!file.startsWith(root.endsWith(sep) ? root : root + sep) || !(await stat(file)).isFile()) {
-      response.writeHead(404).end();
-      return;
-    }
-    response.writeHead(200, {
-      'Content-Type': types[extname(file)] || 'application/octet-stream',
-      'Cache-Control': 'no-store',
-      'X-Content-Type-Options': 'nosniff',
-      'Content-Security-Policy': "default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'",
-    });
-    response.end(await readFile(file));
-  } catch { response.writeHead(404).end(); }
+    // This adapter-only path exercises the production configuration-error page.
+    // It is absent from app/public and the production Worker bundle.
+    const url = request.url === '/__design/service-error'
+      ? 'https://unconfigured.example.test/' : new URL(request.url, origin).href;
+    const result = await mf.dispatchFetch(url, { method: request.method, headers: { accept: request.headers.accept || '*/*' } });
+    response.writeHead(result.status, Object.fromEntries(result.headers));
+    response.end(Buffer.from(await result.arrayBuffer()));
+  } catch {
+    response.writeHead(500, { 'content-type': 'text/plain' }).end('Browser test host failed');
+  }
 });
-server.listen(port, '127.0.0.1', () => process.stdout.write(`Static app test host: http://127.0.0.1:${port}\n`));
-for (const signal of ['SIGINT', 'SIGTERM']) process.on(signal, () => server.close(() => process.exit(0)));
+server.listen(port, '127.0.0.1', () => process.stdout.write(`Production Worker test host: http://127.0.0.1:${port}\n`));
+for (const signal of ['SIGINT', 'SIGTERM']) process.on(signal, async () => {
+  server.closeAllConnections();
+  await new Promise(resolve => server.close(resolve));
+  await mf.dispose();
+  await rm(storage, { recursive: true, force: true });
+  process.exit(0);
+});

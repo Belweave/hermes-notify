@@ -21,6 +21,6 @@ export default defineConfig({
     command: 'node scripts/test-server.mjs',
     url: `http://127.0.0.1:${port}`,
     reuseExistingServer: false,
-    timeout: 10_000,
+    timeout: 30_000,
   },
 });

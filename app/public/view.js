@@ -10,8 +10,9 @@ function node(tag, className, value) {
   return element;
 }
 
-export function gate({ title, message, signin = false, retry = false, hint = false, tone = '' }) {
+export function gate({ title, message, signin = false, retry = false, hint = false, help = hint, tone = '' }) {
   el('workspace').hidden = true;
+  el('reply-link').hidden = true;
   el('gate').hidden = false;
   el('gate').dataset.tone = tone;
   set('gate-title', title);
@@ -19,7 +20,7 @@ export function gate({ title, message, signin = false, retry = false, hint = fal
   el('sign-in').hidden = !signin;
   el('sign-in').disabled = false;
   el('retry-open').hidden = !retry;
-  el('auth-help').hidden = !hint;
+  el('auth-help').hidden = !help;
   el('gate-hint').hidden = !hint;
 }
 
@@ -36,6 +37,7 @@ export function clearPrivate() {
 export function renderWorkspace(workspace) {
   el('gate').hidden = true;
   el('workspace').hidden = false;
+  el('reply-link').hidden = false;
   el('private-actions').hidden = false;
   const name = workspace.name.trim() ? workspace.name : 'Release workspace';
   document.title = `${name} · Hermes Pocket`;
@@ -59,20 +61,17 @@ export function renderWorkspace(workspace) {
   el('native-approval').hidden = !decision.native;
   el('native-hint').hidden = !decision.native;
 
-  const symbols = { passed: '✓', failed: '×', running: '›', pending: '·' };
   const labels = { passed: 'Passed', failed: 'Failed', running: 'Running', pending: 'Pending' };
   const rows = workspace.checks.map((check) => {
     const row = node('li');
     row.dataset.status = check.status;
-    const symbol = node('span', 'check-symbol', symbols[check.status]);
-    symbol.setAttribute('aria-hidden', 'true');
-    row.append(symbol, node('span', 'check-label', check.label.trim() ? check.label : 'Unnamed check'), node('span', 'check-state', labels[check.status]));
+    row.append(node('span', 'check-label', check.label.trim() ? check.label : 'Unnamed check'), node('span', 'check-state', labels[check.status]));
     return row;
   });
   el('checks').replaceChildren(...rows);
   set('check-count', workspace.checks.length ? `${workspace.checks.filter((check) => check.status === 'passed').length}/${workspace.checks.length} passed` : '');
   el('checks-empty').hidden = workspace.checks.length !== 0;
-  set('release-notes', workspace.notes.trim() ? workspace.notes : 'No release or rollback notes have been published yet.');
+  set('release-notes', workspace.notes.trim() ? workspace.notes : 'No release or rollback notes have been published. Ask Hermes to add the release steps and recovery instructions.');
   el('release-notes').classList.toggle('muted', !workspace.notes.trim());
   const artifacts = workspace.artifacts.map((artifact) => {
     const item = node('li');
@@ -82,9 +81,7 @@ export function renderWorkspace(workspace) {
     link.rel = 'noopener noreferrer';
     const label = artifact.label.trim() ? artifact.label : 'Release artifact';
     link.setAttribute('aria-label', `${label}, ${new URL(artifact.url).hostname}, opens in a new tab`);
-    const arrow = node('span', 'artifact-arrow', '↗');
-    arrow.setAttribute('aria-hidden', 'true');
-    link.append(node('span', 'artifact-label', label), node('span', 'artifact-host', new URL(artifact.url).hostname), arrow);
+    link.append(node('span', 'artifact-label', label), node('span', 'artifact-host', new URL(artifact.url).hostname));
     item.append(link);
     return item;
   });
