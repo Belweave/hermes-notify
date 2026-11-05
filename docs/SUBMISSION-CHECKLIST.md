@@ -112,6 +112,22 @@ The runtime/UI behavior suites had 223 passing tests before this documentation a
 
 The authoritative Hermes source is pinned as above. Validation uses an empty home/profile, disabled project plugins and no operator credentials. The complete source export is scanned, including developer helpers. The development-only private-import warning is expected: those scripts explicitly exercise the real Hermes manager, guard context and admission checker. Production registration uses public APIs. `in_process` is intentional for the approval channel, not a sandbox claim.
 
+### Exact candidate and dependency preparation
+
+The catalog draft pins `8c73716f9adbf6b3e26ec77651cf45508bee3e09`, which contains the audited implementation, README and skill corrections. A following metadata commit updates the entry to that candidate and records this receipt; no runtime code changes occur in that metadata commit. Both the candidate and final HEAD are validated. A commit cannot contain its own SHA.
+
+Command: `.venv/bin/python -m hermes_cli.main plugins validate .local/candidates/8c73716f9adbf6b3e26ec77651cf45508bee3e09/source --install-deps --json`, under the same pinned-source isolation plus `HERMES_RUNTIME_DIR=.local/validation-tools`. Exit status: `0`; all 16 checks pass; security is `safe`. Its full stdout is byte-for-byte identical to the JSON block below (SHA-256 `1263f5a13dde95fe529cd9df4f7de941709ca2c65d6de3637c49b2ce02951cb7`). Full stderr:
+
+```text
+⚠ install out of sync (ffmpeg: not installed or outdated; node: not installed or outdated; npm: not installed or outdated; ripgrep: not installed or outdated; venv: out of sync with uv.lock) — this unknown-managed install must rebuild the artifact to fix
+  → Resolving Python dependencies…
+  ✓ Resolving Python dependencies
+  → Installing Python dependencies…
+  ✓ Installing Python dependencies
+```
+
+The startup warning describes the isolated source installation's optional toolchain. Python dependency resolution and installation complete successfully; this is not proof of a fully provisioned production Hermes host. The warning is preserved, not treated as a plugin admission failure. Raw command, stdout, stderr and result are retained in `.local/candidates/8c73716f9adbf6b3e26ec77651cf45508bee3e09/`.
+
 ### Full output of hermes plugins validate at HEAD
 
 The equivalent pinned-source CLI invocation is `.venv/bin/python -m hermes_cli.main plugins validate .local/submission-audit/head --json`. `PYTHONPATH` selects the recorded Hermes source; HOME and HERMES_HOME are isolated. The directory is a clean `git archive HEAD` export when checking the committed result. Full stdout and stderr follow without filtering, and exit status is recorded. A final post-commit rerun must match these bytes; its external receipt identifies the final SHA, avoiding an impossible self-referential commit hash in this file. The separate `--install-deps` candidate receipt records the dependency-prepared admission pass and full setup diagnostics.
