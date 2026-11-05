@@ -1,0 +1,307 @@
+{
+  "verifiedOn": "2026-11-04 America/New_York",
+  "baseCommit": "ed8c6c9aa1196bcf1fa06564961f41f6c7a44be7",
+  "productionSourceCommit": "9a650ffdd7b89d5bb9b503f66c0fc2e6c3f816f9",
+  "sourceSha256": {
+    "app/public/index.html": "6ccac76b3689a181bdaa7e23a24e9349b2852638052379501af9d68bdd9693e9",
+    "app/public/styles.css": "6e6b46d3988868f4884883133862fb786c0449ce6e944feaf8264ab3d78e6d03",
+    "app/public/no-script.css": "9168629635d1e014abda6a2d3e29d17bce7ac351936bfe6a14ccc9f4d67defab",
+    "app/public/app.js": "7e676db19b6c6dc175f5a4477b5c443a6082b20cec77d8cf770985bb324a5ad9",
+    "app/public/view.js": "d8f100744f08659bb0c3cb58edcd23f5fd510298e4a916a435fd9b9f5dc51a9e",
+    "app/public/auth.js": "33594cd6a0a79b79e297b955da075f9aa6f82ed8cce94b02ce6410620876c3d0",
+    "worker/src/index.js": "94f8e33a544c0d0232ca97468b1d503775298bd1267d599bca76cb0017deed05",
+    "worker/src/pages.js": "64102af9884c700973d3c319baee64a5dc2aa6791567278406a31cf45542c171",
+    "app/tests/design.spec.js": "527df856fb6b74f31670ee8c3d57f4a9e4b052afc57f9c0339ccfed07393c751"
+  },
+  "tests": [
+    {
+      "suite": "Python",
+      "passed": 126,
+      "command": ".venv/bin/python -m pytest -q"
+    },
+    {
+      "suite": "Worker",
+      "passed": 23,
+      "command": "node worker/scripts/isolated.mjs test"
+    },
+    {
+      "suite": "App",
+      "passed": 72,
+      "command": "DESIGN_SHOTS_DIR=/tmp/hermes-design-shots npm --prefix app test -- --reporter=line"
+    },
+    {
+      "suite": "Desktop SDK",
+      "passed": 9,
+      "command": "node --experimental-vm-modules --test desktop/tests/plugin.test.mjs"
+    },
+    {
+      "suite": "Desktop backend",
+      "passed": 28,
+      "command": "desktop/tests/.venv/bin/python -m pytest -q dashboard/tests"
+    }
+  ],
+  "validation": {
+    "command": "hermes plugins validate <clean-source-export> --json",
+    "passed": 16,
+    "total": 16,
+    "checks": [
+      {
+        "name": "manifest",
+        "ok": true,
+        "detail": "plugin.yaml parses"
+      },
+      {
+        "name": "manifest fields",
+        "ok": true,
+        "detail": "name, version, description present"
+      },
+      {
+        "name": "requires_hermes",
+        "ok": true,
+        "detail": "not declared"
+      },
+      {
+        "name": "config schema",
+        "ok": true,
+        "detail": "shape valid"
+      },
+      {
+        "name": "requires_env",
+        "ok": true,
+        "detail": "all entries UPPER_SNAKE"
+      },
+      {
+        "name": "oauth",
+        "ok": true,
+        "detail": "not declared"
+      },
+      {
+        "name": "loadable",
+        "ok": true,
+        "detail": "entry: __init__.py, desktop/plugin.js"
+      },
+      {
+        "name": "python dependencies",
+        "ok": true,
+        "detail": "none declared"
+      },
+      {
+        "name": "capability probe",
+        "ok": true,
+        "detail": "register() ran in isolation"
+      },
+      {
+        "name": "declared tools",
+        "ok": true,
+        "detail": "matches registrations"
+      },
+      {
+        "name": "declared hooks",
+        "ok": true,
+        "detail": "matches registrations"
+      },
+      {
+        "name": "declared middleware",
+        "ok": true,
+        "detail": "matches registrations"
+      },
+      {
+        "name": "built-in tool collisions",
+        "ok": true,
+        "detail": "no collisions"
+      },
+      {
+        "name": "security scan",
+        "ok": true,
+        "detail": "safe"
+      },
+      {
+        "name": "no core override",
+        "ok": true,
+        "detail": "no runtime rebinds of Hermes core"
+      },
+      {
+        "name": "desktop surface",
+        "ok": true,
+        "detail": "stays inside the plugin SDK surface"
+      }
+    ],
+    "warnings": [
+      "private core imports (catalog rule 9: public surfaces only; these can break on any release): scripts/release_demo.py:117 gateway.session_context.clear_session_vars; scripts/release_demo.py:118 hermes_cli.plugins.get_plugin_manager; scripts/validate_package.py:23 hermes_cli.plugin_validate.validate_plugin_dir; scripts/release_demo.py:117 gateway.session_context.set_session_vars; scripts/spike.py:50 hermes_cli.plugins.get_plugin_manager. Use ctx.* / documented plugin APIs, or open an issue for the seam you need."
+    ]
+  },
+  "payloadScan": {
+    "command": ".venv/bin/python .local/hermes-source/scripts/scan_plugin_payloads.py <clean-source-export>",
+    "exitCode": 0
+  },
+  "gitleaks": {
+    "scope": "All tracked and untracked, nonignored working-tree files copied byte for byte into a clean directory. No history, dependencies, local state or credentials are copied.",
+    "command": "gitleaks dir <working-tree-export> --redact --no-banner --no-color",
+    "unfilteredFindings": 3,
+    "verifiedCredentialFindings": 0,
+    "exitCodeAfterExactFingerprintExclusions": 0,
+    "reviewedFalsePositives": [
+      {
+        "file": "worker/sdk-provenance.json",
+        "rule": "generic-api-key",
+        "lines": [
+          37,
+          43
+        ],
+        "reason": "Recorded SHA-256 values for SDK generate_secret type definitions, not API keys."
+      },
+      {
+        "file": "worker/vendor/tunnel-runtime-P7WIFCYW.mjs",
+        "rule": "private-key",
+        "lines": [
+          33927,
+          33929
+        ],
+        "reason": "PEM encoder template containing JavaScript interpolation, not embedded private-key bytes."
+      }
+    ]
+  },
+  "hoverRegression": {
+    "beforeFixContrast": 1.6800900886286894,
+    "beforeFixOutcome": "failed",
+    "afterFixOutcome": "passed",
+    "minimumContrast": 4.5,
+    "test": "hover and focus keep enabled and disabled controls legible"
+  },
+  "logos": "app/public/logos/PROVENANCE.json",
+  "screenshots": [
+    {
+      "path": "/tmp/hermes-design-shots/auth-error-390.png",
+      "width": 390,
+      "height": 844,
+      "sha256": "d8eb05c2473efa6af826e50cbfcbb4676f4d696090ce6b1e4bdeb78071582032"
+    },
+    {
+      "path": "/tmp/hermes-design-shots/auth-error-900.png",
+      "width": 900,
+      "height": 844,
+      "sha256": "a03bb514f0bd80aee01eb5a7bce1ca27ae92f0691a1a42b024e5fd05c1036ee6"
+    },
+    {
+      "path": "/tmp/hermes-design-shots/empty-390.png",
+      "width": 390,
+      "height": 844,
+      "sha256": "f35a5bc8dd36d5898a02f5be71ff3c7f9f5ba03c7dda4dbcae2152197a819315"
+    },
+    {
+      "path": "/tmp/hermes-design-shots/empty-900.png",
+      "width": 900,
+      "height": 844,
+      "sha256": "dc0e94dcdb6115a1aac58d1418a2cd062119c58e92cd0dc9c4a87997b57c37e6"
+    },
+    {
+      "path": "/tmp/hermes-design-shots/empty-release-390.png",
+      "width": 390,
+      "height": 1678,
+      "sha256": "03adc2354aa5fe4b85fab5c53428a03f4ce0a3c509cc1cdaac33ed3984a09223"
+    },
+    {
+      "path": "/tmp/hermes-design-shots/empty-release-900.png",
+      "width": 900,
+      "height": 1161,
+      "sha256": "e3a05fc84d496d950a6380885ee2747a846860ae1c55fcc619e92f5022f7f728"
+    },
+    {
+      "path": "/tmp/hermes-design-shots/error-390.png",
+      "width": 390,
+      "height": 844,
+      "sha256": "8c8def054cfc739b70332b5ed2420009c06101e7caedc79a14caebf7e1a9d888"
+    },
+    {
+      "path": "/tmp/hermes-design-shots/error-900.png",
+      "width": 900,
+      "height": 844,
+      "sha256": "3d3c5665fe63094e6fbd442ec9b03725e5daaef3f510733e40f586e6b3eb81cd"
+    },
+    {
+      "path": "/tmp/hermes-design-shots/loading-390.png",
+      "width": 390,
+      "height": 844,
+      "sha256": "96f3938303a6376e271eca20759ca214d1856af121f76692c14996b7ae0023ad"
+    },
+    {
+      "path": "/tmp/hermes-design-shots/loading-900.png",
+      "width": 900,
+      "height": 844,
+      "sha256": "9099040a79bf0fb3b2525e403f499d167c00acab531fd29dd09a0381005cee56"
+    },
+    {
+      "path": "/tmp/hermes-design-shots/not-found-390.png",
+      "width": 390,
+      "height": 844,
+      "sha256": "9518e72fb5bad37c9d6d9f9239b573775a3cef1bd92b1e67dd970166bf520fd0"
+    },
+    {
+      "path": "/tmp/hermes-design-shots/not-found-900.png",
+      "width": 900,
+      "height": 844,
+      "sha256": "8a50e34e681955d03df8da8f8703b3b5358302988588bdfa2e020c7e01faf562"
+    },
+    {
+      "path": "/tmp/hermes-design-shots/pending-decision-390.png",
+      "width": 390,
+      "height": 2284,
+      "sha256": "306f71146ba462f7e30414ebbd844bc4b84dfce5e17c9507901468628649f730"
+    },
+    {
+      "path": "/tmp/hermes-design-shots/pending-decision-900.png",
+      "width": 900,
+      "height": 1702,
+      "sha256": "8e8063db9557a0de5f98218576a3d27ab28f3f3471c54848d6261be353c5c5f1"
+    },
+    {
+      "path": "/tmp/hermes-design-shots/release-complete-390.png",
+      "width": 390,
+      "height": 2125,
+      "sha256": "2c30afaf66a71eef8ffa079832d8d4eb27b96b2afeebe6e5cadaf8f90f48b597"
+    },
+    {
+      "path": "/tmp/hermes-design-shots/release-complete-900.png",
+      "width": 900,
+      "height": 1583,
+      "sha256": "60699ffa25e9e927b15b5ac7a34d29948f15b24efea55ecf820c797e512957e6"
+    },
+    {
+      "path": "/tmp/hermes-design-shots/root-390.png",
+      "width": 390,
+      "height": 844,
+      "sha256": "449774dc0a2342578706a7ec20b13ab77d7ec211b4f51ec9fde7af0258413e70"
+    },
+    {
+      "path": "/tmp/hermes-design-shots/root-900.png",
+      "width": 900,
+      "height": 844,
+      "sha256": "493f0bbd0afcecab578cd27c19c1a5649932f007fa93657f1c29b33b8b0a27bb"
+    },
+    {
+      "path": "/tmp/hermes-design-shots/service-error-390.png",
+      "width": 390,
+      "height": 844,
+      "sha256": "298ed182ece8acc7a0cbadbd3b3f811a391872ffc50b7c1eb7bf96eb2ddfde76"
+    },
+    {
+      "path": "/tmp/hermes-design-shots/service-error-900.png",
+      "width": 900,
+      "height": 844,
+      "sha256": "efee74ec159acf8cea31de11453f852f675ea90176409b0c26a37f1b46325226"
+    },
+    {
+      "path": "/tmp/hermes-design-shots/signed-out-390.png",
+      "width": 390,
+      "height": 844,
+      "sha256": "1dbe364114434583464291a99e683ab2d90e9c8bdfbaf41ed1337d7f080d89ac"
+    },
+    {
+      "path": "/tmp/hermes-design-shots/signed-out-900.png",
+      "width": 900,
+      "height": 844,
+      "sha256": "5b00f77f89f5d7545e493e670eb85aa701b281ea0af50fb7ce6095411837293a"
+    }
+  ],
+  "limits": "Chromium browser fixtures with synthetic private data and the real built Worker. No live phone authentication or deployment is implied."
+}

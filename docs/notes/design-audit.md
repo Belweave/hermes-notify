@@ -26,3 +26,7 @@ The mechanical design scan identified a disabled primary button hover contrast f
 The no-script state also now hides the sign-in loading message and gives a reload action after JavaScript is enabled. Once sign-in is verified, the loading message explicitly says the release is loading.
 
 The error/empty screenshots exposed a Reply link pointing into a hidden workspace. Gates now hide that link while retaining Sign out for an authenticated session. The font/state checks also assert this control boundary.
+
+## Outcome
+
+Every listed gap is addressed. The current verification results and reproducible commands are in [the app verification record](../../app/VERIFICATION.md). The [machine-readable receipt](design-validation.json) records source hashes, all 16 admission checks, the contrast regression, reviewed secret-scan false positives and the 22 screenshot hashes. Source and commands use relative paths; screenshot outputs are under the requested temporary directory.
