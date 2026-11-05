@@ -1,6 +1,6 @@
-# Draft: add Hermes Pocket to the plugin catalog
+# Catalog PR: add Hermes Pocket to the plugin catalog
 
-Draft text for the catalog PR, which has not been opened yet. The repository is public at https://github.com/Belweave/hermes-notify. [The entry](../plugin-catalog/hermes-notify.yaml) is pinned to `d4da572ccfcca229b20ada76e0457eee09768430`, which is on public `main` and includes the strengthened regression tests from `6dfd871`, and its screenshot URLs use the same commit. The quoted version is `"0.2.0"`; the SHA is the install pin. The future upstream PR adds only `plugin-catalog/hermes-notify.yaml`, not the standalone implementation. Subsequent updates need a new catalog PR, a version label matching the new pin, and screenshot URLs updated to that pin.
+The catalog PR is open: [NousResearch/hermes-agent#149220](https://github.com/NousResearch/hermes-agent/pull/149220). This is its description text. The repository is public at https://github.com/Belweave/hermes-notify. [The entry](../plugin-catalog/hermes-notify.yaml) is pinned to `d4da572ccfcca229b20ada76e0457eee09768430`, which is on public `main` and includes the strengthened regression tests from `6dfd871`, and its screenshot URLs use the same commit. The quoted version is `"0.2.0"`; the SHA is the install pin. The upstream PR adds only `plugin-catalog/hermes-notify.yaml`, not the standalone implementation. Subsequent updates need a new catalog PR, a version label matching the new pin, and screenshot URLs updated to that pin.
 
 ## What does this PR do?
 
@@ -10,7 +10,7 @@ The first publisher updates the supplied release template and can register exist
 
 ## Related Issue
 
-No related issue is claimed or automatically closed. Read-only GitHub searches on November 4, 2026 covered open and closed PRs/issues for `Belweave` and the Hermes Notify topic, plus the current catalog/source. No matching Belweave submission was returned. The broad hyphenated-name search returned unrelated Notify/kanban work and is not evidence of an exhaustive uniqueness search. Repeat the focused search immediately before opening the PR.
+No related issue is claimed or automatically closed. Read-only GitHub searches on November 4, 2026 covered open and closed PRs/issues for `Belweave` and the Hermes Notify topic, plus the current catalog/source. No matching Belweave submission was returned. The broad hyphenated-name search returned unrelated Notify/kanban work and is not evidence of an exhaustive uniqueness search. The focused search was repeated before the PR was opened.
 
 ## Type of Change
 
