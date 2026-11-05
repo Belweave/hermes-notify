@@ -1,0 +1,17 @@
+{
+  "name": "hermes-pocket-worker",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=22.23.0" },
+  "scripts": {
+    "test": "node scripts/isolated.mjs test",
+    "build": "node scripts/isolated.mjs build",
+    "check": "node scripts/isolated.mjs check"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2",
+    "miniflare": "4.20260730.0",
+    "wrangler": "4.157.0"
+  }
+}

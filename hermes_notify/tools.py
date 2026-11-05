@@ -1,0 +1,46 @@
+"""Small public Hermes tool surface. Session identity never comes from model input."""
+
+from .runtime import Session
+
+STRING = {"type": "string"}
+PROJECT = {"project": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]{0,63}$"}, "run_id": STRING}
+CONTENT = {"name": STRING, "stage": STRING, "summary": STRING, "notes": STRING,
+           "progress": {"type": ["number", "null"], "minimum": 0, "maximum": 1},
+           "checks": {"type": "array", "maxItems": 20, "items": {"type": "object", "properties": {
+               "label": STRING, "status": {"type": "string", "enum": ["pending", "running", "passed", "failed"]}},
+               "required": ["label", "status"], "additionalProperties": False}},
+           "artifacts": {"type": "array", "maxItems": 20, "items": {"type": "object", "properties": {
+               "label": STRING, "url": STRING}, "required": ["label", "url"], "additionalProperties": False}}}
+
+
+def schema(name, description, properties, required):
+    return {"name": name, "description": description, "parameters": {
+        "type": "object", "properties": properties, "required": required, "additionalProperties": False}}
+
+
+SCHEMAS = [
+    schema("notify_release", "Begin, update, finish or inspect a release workspace. Use measured progress or null. Updates require expected_revision. Only finish with an explicit action result can record shipped.",
+           PROJECT | CONTENT | {"action": {"type": "string", "enum": ["begin", "update", "finish", "status"]},
+           "version": STRING, "expected_revision": {"type": "integer", "minimum": 1},
+           "status": {"type": "string", "enum": ["preparing", "running"]},
+           "result": {"type": "string", "enum": ["succeeded", "failed", "canceled"]}, "result_summary": STRING}, ["action", "project"]),
+    schema("notify_publish_app", "Publish this release to the configured Worker, or register an existing HTTPS App URL. Resume the same durable publication on retry. Does not deploy code.",
+           PROJECT | {"name": {"type": "string", "maxLength": 40}, "url": STRING}, ["project"]),
+    schema("notify_send", "Send a rich project update. A receipt proves provider acceptance only. Reuse idempotency_key for the same intended update.",
+           PROJECT | {"title": STRING, "body": STRING, "summary": STRING, "url": STRING, "imageUrl": STRING,
+                      "body_format": {"type": "string", "enum": ["text", "markdown"]}, "idempotency_key": STRING}, ["project", "body"]),
+    schema("notify_ask", "Ask a business question on the phone. This never grants a Hermes host permission. Pending questions are reconciled on demand with notify_replies.",
+           PROJECT | {"title": STRING, "prompt": STRING, "kind": {"type": "string", "enum": ["approval", "yes_no", "reply"]},
+                      "expires_in_seconds": {"type": "integer", "minimum": 30, "maximum": 86400},
+                      "wait_seconds": {"type": "number", "minimum": 0, "maximum": 25}, "idempotency_key": STRING}, ["project", "title", "prompt"]),
+    schema("notify_replies", "Collect attributed replies for the original release and calling session. Polls only on demand. Injection additionally requires operator opt-in and host authorization.",
+           PROJECT | {"inject": {"type": "boolean"}}, ["project"]),
+    schema("notify_status", "Read bounded local configuration, release, approval and delivery state. Makes no network requests.", PROJECT, []),
+]
+
+
+def calling_session(kwargs):
+    # Public helper reads Hermes's task-local context, including the route key needed by
+    # inject_message. It is not a mutable process-global environment guess.
+    from gateway.session_context import get_session_env
+    return Session(get_session_env("HERMES_SESSION_KEY", ""), str(kwargs.get("session_id") or ""))

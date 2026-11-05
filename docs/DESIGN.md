@@ -2,7 +2,7 @@
 
 Recommend **Hermes Pocket: Notify is the phone surface for Hermes.** Hermes publishes a useful, persistent Notify App; rich pushes, approvals and replies, Live Activities, and the project inbox keep the same task in reach. The defining moment is opening the app Hermes just made and changing what happens next from that screen.
 
-This is the proposed product, not a claim that the exploration spike implements it. The spike implements the approval transport only. [RESEARCH.md](RESEARCH.md) records verified interfaces and source limits; [PLAN.md](PLAN.md) gives the delivery sequence.
+The first local implementation now includes the release workspace App, Cloudflare Worker publisher, progress, exact native approvals, written replies, signed webhook receipt and a Desktop/Webapp companion. [VERIFICATION.md](VERIFICATION.md) separates tested local behavior from the remaining phone and deployment checks. [RESEARCH.md](RESEARCH.md) records verified interfaces and source limits; [PLAN.md](PLAN.md) gives the delivery sequence.
 
 ## Three concepts
 
@@ -49,16 +49,16 @@ The public approval transport is the exception: Hermes already provides a bounde
 
 ### Publish an App
 
-Proposed tool: `notify_publish_app(project, name, source_dir | url, publisher)`. The configured publisher is operator-owned. A tool argument cannot introduce a shell command, deploy credential, or arbitrary hosting endpoint.
+Implemented tool: `notify_publish_app(project, run_id?, name?, url?)`. Without `url`, it publishes versioned release-workspace data to the configured Cloudflare Worker. With `url`, it registers an existing hosted App. The Worker hosts the complete static release App, installed separately by the operator. Arbitrary generated-code uploads remain outside this first template. The host is operator-owned; a tool argument cannot introduce a shell command, deploy credential, or hosting endpoint.
 
-1. Resolve the project and existing App mapping. Hash the artifact; create a durable operation ID. Repeated calls for the same version resume that operation.
-2. For source input, build with Hermes's existing execution facilities, with bounded concurrency and disk-backed output. Confine artifact reads to the selected output directory. Use a trusted publisher adapter with an argv API, explicit timeout, and structured result. For an existing URL, skip deployment.
-3. Verify the deployment result and a health/version marker at the configured HTTPS origin. Apply an outbound URL policy; do not fetch arbitrary private network addresses from generated content.
+1. Resolve the original session, run and existing App mapping. Hash the workspace; persist an operation ID and exact request bytes. Repeated calls resume that operation.
+2. Verify the configured Worker's health and schema marker. For an existing URL, validate public HTTPS syntax and skip data publication without fetching an arbitrary destination.
+3. Publish the next Worker revision with an atomic expected-revision check. Reconcile an expired saved response only when an authenticated read matches the exact pending workspace. Never overwrite a newer conflict.
 4. Register through `POST /api/agent/apps`, or update the saved App. Save the returned `app_` ID. Use a stable App URL across releases so each update preserves identity and phone consent. URL registration itself is not code hosting.
 5. Send `POST /api/agent/notifications` with `appId`, the inbox `project`, and a concise summary. Save notification identity and provider-acceptance result. Do not claim the person saw it.
 6. The phone opens the live App. Subsequent progress, answers, and artifact revisions change its data without publishing a new app shell for every event.
 
-Journal phases: `prepared -> deployed -> registered -> announced`. Each phase records its remote identifier before the next starts. A deployment can succeed even if registration fails, and registration can succeed even if notification delivery fails. Retry the incomplete phase. Keep the previous working version available for rollback; never remove it merely because an announcement failed.
+Journal phases: `prepared -> deployed -> registered -> synced -> announced`; existing-URL publication uses `url_validated` in place of `deployed`. Here `deployed` records accepted workspace data, not infrastructure deployment. Each phase records its remote identifier before the next starts. Publication can succeed even if registration fails, and registration can succeed even if delivery fails. Retry only when the previous outcome is known or safely reconciled. An ambiguous Notify write remains visible as unknown and is not blindly resent. The Worker retains the latest workspace and bounded operation receipts, not an unlimited rollback history.
 
 Notify Apps are ordinary hosted web apps. Start with responsive HTML, CSS, and small JavaScript modules; use a backend only for shared state and authorization. A generated app must not contain an agent token, a deploy token, a webhook secret, or the host's environment. A caller cannot approve an interaction using the agent API.
 
@@ -74,7 +74,7 @@ Profile fields are optional consented data. A successful sign-in can have no nam
 | --- | --- |
 | REST | Deterministic lifecycle writes, interaction state, App registration, delivery status, progress, and recovery. This is the CLI-independent runtime path. |
 | Official MCP | Access to Notify's broader tool families. Document configuration through Hermes's MCP support and select families per task. Avoid advertising every tool on every model turn or duplicating the core workflow with two competing sets of tools. |
-| Reply webhooks | Durable terminal interaction events when a reachable HTTPS receiver is configured. Verify raw-byte signatures and timestamps, persist before acknowledging, deduplicate, then reconcile with authoritative REST state before resuming an action. |
+| Reply webhooks | Durable terminal interaction hints when a reachable HTTPS receiver is configured. Verify raw-byte signatures and timestamps, persist before acknowledging, deduplicate, then reconcile with authoritative REST. They never resume a native host permission. |
 | Event URLs | Optional inbound automation through Notify service webhooks. Treat URLs as credentials and keep them out of app source and logs. They are distinct from saved reply-webhook subscription IDs. |
 | CLI | Optional onboarding, diagnostics, status, and manual recovery. Use explicit JSON output and argv, never shell interpolation. Do not depend on a user's CLI config file for runtime secrets. The integration works when `notify` is absent from PATH. |
 
@@ -90,13 +90,13 @@ Use saved generic reply webhooks for lifecycle delivery. Their signature is `X-N
 
 | Rank | Feature | Visible proof | Implementation state |
 | --- | --- | --- | --- |
-| 1 | Publish a full interactive App to the phone | Tap a rich notification and use a project workspace created by Hermes. | Designed |
-| 2 | Exact approval changes the workflow | Approve one named operation; Hermes and the App show the resulting state. | Host transport proven with mocks |
-| 3 | Live progress | The phone's native progress surface changes as work advances, then ends cleanly. | Designed |
-| 4 | Project inbox and rich updates | Artifacts and decisions stay together after the chat moves on. | Designed |
-| 5 | Written reply into the correct session | A short phone reply becomes input to the original task, with provenance. | Designed |
-| 6 | Desktop companion pane | Open Apps, pending decisions, recent delivery state, and configuration. | Designed |
-| 7 | Optional sign-in and phone capabilities | The App recognizes its consenting user without asking for a password. | Designed; confirm deployed SDK/build |
+| 1 | Publish a full interactive App to the phone | Tap a rich notification and use a project workspace created by Hermes. | Implemented and tested locally |
+| 2 | Exact approval changes the workflow | Approve one named operation; Hermes and the App show the resulting state. | Mock suite plus one live phone approval passed |
+| 3 | Live progress | The phone's native progress surface changes as work advances, then ends cleanly. | Implemented and tested locally |
+| 4 | Project inbox and rich updates | Artifacts and decisions stay together after the chat moves on. | Implemented and tested locally |
+| 5 | Written reply into the correct session | A short phone reply becomes input to the original task, with provenance. | Implemented and tested locally |
+| 6 | Desktop companion pane | Open Apps, pending decisions, recent delivery state, and configuration. | Implemented and tested locally |
+| 7 | Optional sign-in and phone capabilities | The App recognizes its consenting user without asking for a password. | Synthetic SDK session verified; confirm live bridge |
 | 8 | Full MCP/CLI coverage and diagnostics | Advanced operations remain available; installation works without CLI. | Runtime CLI independence proven; broader integration designed |
 
 ## Visual direction
@@ -109,11 +109,11 @@ The Desktop contribution must use documented SDK slots and theme variables; it c
 
 ## Configuration and secrets
 
-The spike's actual settings are in `plugin.yaml`: `enabled` defaults to false, `timeout_seconds` defaults to 120, and optional `device_id` chooses one phone. The operator separately selects `security.approval.transport: notify`. Reload the plugin after settings changes; no observer silently changes security configuration.
+The implemented settings are in `plugin.yaml`: `enabled` defaults to false, `timeout_seconds` defaults to 120, and optional `device_id` chooses one phone. `publisher_origin`, or `worker_name` plus `worker_subdomain`, selects the Worker. `progress_enabled` and `allow_reply_injection` are explicit opt-ins. `progress_interval_seconds` and `retention_days` bound delivery cadence and completed local history. The operator separately selects `security.approval.transport: notify`. Reload after changes; no observer silently changes security configuration.
 
 Approval transports currently require a profile using `plugins.isolation: in_process`. If a user requires host isolation, decline to enable the transport; do not silently weaken that profile. Explicit outbound tools could remain a separate supported mode after their isolation compatibility is tested.
 
-Proposed production settings add project mapping, enabled event families, notification privacy, progress update interval, a publisher name and origin, and webhook receiver mode. Put these under `plugins.entries.hermes-notify.settings`. No token-valued field belongs there.
+Project/App mapping and pending operation state live in the profile journal. Settings belong under `plugins.entries.hermes-notify.settings`. No token-valued field belongs there. The separate Worker requires `PUBLISH_TOKEN` and an origin-specific `OWNER_SUBJECT`; saved webhook receipt additionally needs `NOTIFY_WEBHOOK_SECRET`.
 
 Supply the token through env or an operator-managed OS-keychain-to-env path. Inside the plugin, resolve the declared `NOTIFY_API_TOKEN` through Hermes's public `agent.secret_scope.get_secret` during registration; never read a credential store or another tool's login directly. The catalog requires this profile-scoped route. Start with `notifications:send`, `interactions:create`, and `interactions:read`. Add `apps:read/write`, `activities:read/write`, and other documented scopes only when enabling the corresponding feature. Public app identity passes and agent bearer tokens have different purposes and never substitute for one another.
 
@@ -142,17 +142,16 @@ Production targets: no idle polling for inactive tasks; no LLM calls in delivery
 
 ## 85-second demo storyboard
 
-Prepare one authorized test account, a deployed publisher, a warmed project fixture, and a phone with the required capabilities. Record the real round trip. Time-compress build waiting only if clearly labeled; never substitute a staged answer for a live one.
+The current rehearsal and timing are in [DEMO.md](DEMO.md). Prepare one authorized test account, a deployed publisher, a warmed release fixture, and a phone with the required capabilities. Record the real round trip. Time-compress build waiting only if clearly labeled; never substitute a staged answer for a live one.
 
 | Time | Screen and action | Evidence |
 | --- | --- | --- |
-| 0 to 7 s | Hermes: “Turn this launch checklist into a phone workspace. Keep me posted and ask before the final step.” | One understandable task. |
-| 7 to 18 s | Hermes creates the App; Desktop shows publication steps. Phone progress starts. | Real host integration and lifecycle. |
-| 18 to 31 s | A rich push arrives. Tap into the App: preview, checklist, current status, next decision. | A usable web app on the phone, not a screenshot. |
-| 31 to 42 s | Toggle a checklist item and open an artifact. Return to native progress. | Interactivity, persistence, and phone polish. |
-| 42 to 57 s | Hermes reaches the named final action. Read its exact target/version on the phone and approve once. | Human decision attached to one action. |
-| 57 to 68 s | Hermes receives the answer; the App changes from awaiting approval to completed. | The closed loop. |
-| 68 to 78 s | Send “Include the rollback notes” as a reply; Hermes updates the same App. | Continued usefulness after initial publication. |
-| 78 to 85 s | Show the project inbox and completed progress surface. End on the useful App. | Durable result and a clean finish. |
+| 0 to 8 s | Hermes begins a release task. | One understandable task. |
+| 8 to 20 s | A rich push opens the App's version, checks, notes and artifacts. | A useful persistent workspace. |
+| 20 to 32 s | Live Activity moves through a measured release stage. | Native progress. |
+| 32 to 44 s | Send a written reply; Hermes retrieves it for the original task. | Working phone input and task correlation. |
+| 44 to 60 s | Read the exact release action on the phone and approve once. | Human decision attached to one host request. |
+| 60 to 74 s | Hermes executes and verifies the action; the App changes to shipped and progress ends. | Completion follows successful execution. |
+| 74 to 85 s | Reopen the saved App and show the outcome. | Durable result and a clean finish. |
 
 If a second capability is unreliable on rehearsal day, simplify the story around the full App and one real approval. A complete, honest 80-second workflow is stronger than a crowded montage of unfinished features.

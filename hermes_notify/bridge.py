@@ -13,12 +13,13 @@ _slots = threading.BoundedSemaphore(2)
 
 
 class ApprovalBridge:
-    def __init__(self, client, ledger, *, timeout_seconds=120, device_id="", is_cancelled=lambda: False):
+    def __init__(self, client, ledger, *, timeout_seconds=120, device_id="", is_cancelled=lambda: False, on_state=None):
         self.client = client
         self.ledger = ledger
         self.timeout_seconds = timeout_seconds
         self.device_id = device_id
         self.is_cancelled = is_cancelled
+        self.on_state = on_state or (lambda *_: None)
 
     def present(self, request):
         if not _slots.acquire(blocking=False):
@@ -43,6 +44,7 @@ class ApprovalBridge:
         if not self.ledger.claim(request.request_id, request.digest):
             return request.respond("deny")
         interaction_id = None
+        digest = None
         state = "failed"
         try:
             body = {
@@ -58,6 +60,7 @@ class ApprovalBridge:
             digest = interaction["actionDigest"]
             self._validate(interaction, interaction_id, digest, body)
             self.ledger.bind(request.request_id, interaction_id, digest)
+            self.on_state(request, "pending", interaction_id, digest)
             while True:
                 self._remaining(deadline)
                 self._validate(interaction, interaction_id, digest, body)
@@ -66,6 +69,7 @@ class ApprovalBridge:
                     state = "consumed"
                     # Commit consumption before returning. Crash here loses permission, never replays it.
                     self.ledger.finish(request.request_id, state)
+                    self.on_state(request, state, interaction_id, digest)
                     return request.respond("once")
                 if status != "pending":
                     state = "denied"
@@ -86,6 +90,7 @@ class ApprovalBridge:
         finally:
             if state != "consumed":
                 self.ledger.finish(request.request_id, state)
+                self.on_state(request, state, interaction_id, digest)
                 # A cancellation failure leaves the server prompt to expire. It cannot authorize Hermes.
                 if interaction_id and deadline > time.monotonic():
                     try:

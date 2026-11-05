@@ -1,0 +1,1869 @@
+{
+  "paths": {
+    "/apps": {
+      "get": {
+        "summary": "List web apps",
+        "operationId": "getApps",
+        "security": [
+          {
+            "bearer": [
+              "apps:read"
+            ]
+          }
+        ],
+        "x-notify-scopes": [
+          "apps:read"
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "apps": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/App"
+                      }
+                    }
+                  },
+                  "required": [
+                    "apps"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Register a web app (an existing URL is updated)",
+        "operationId": "postApps",
+        "security": [
+          {
+            "bearer": [
+              "apps:write"
+            ]
+          }
+        ],
+        "x-notify-scopes": [
+          "apps:write"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 40
+                  },
+                  "url": {
+                    "type": "string",
+                    "maxLength": 2048,
+                    "format": "uri"
+                  },
+                  "iconUrl": {
+                    "type": "string",
+                    "maxLength": 2048,
+                    "format": "uri"
+                  },
+                  "project": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 80
+                  },
+                  "teamId": {
+                    "type": "string",
+                    "pattern": "^team_[A-Za-z0-9_-]{8,64}$"
+                  }
+                },
+                "required": [
+                  "name",
+                  "url"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "app": {
+                      "$ref": "#/components/schemas/App"
+                    },
+                    "created": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "app",
+                    "created"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/apps/{id}": {
+      "get": {
+        "summary": "Get a web app",
+        "operationId": "getAppsId",
+        "security": [
+          {
+            "bearer": [
+              "apps:read"
+            ]
+          }
+        ],
+        "x-notify-scopes": [
+          "apps:read"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "app": {
+                      "$ref": "#/components/schemas/App"
+                    }
+                  },
+                  "required": [
+                    "app"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "summary": "Update web app metadata or owner-controlled public sign-in",
+        "operationId": "patchAppsId",
+        "security": [
+          {
+            "bearer": [
+              "apps:write"
+            ]
+          }
+        ],
+        "x-notify-scopes": [
+          "apps:write"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 40
+                  },
+                  "url": {
+                    "type": "string",
+                    "maxLength": 2048,
+                    "format": "uri"
+                  },
+                  "iconUrl": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "maxLength": 2048,
+                        "format": "uri"
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "project": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 80
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "publicClient": {
+                    "type": "boolean"
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "app": {
+                      "$ref": "#/components/schemas/App"
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "app"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Remove a web app",
+        "operationId": "deleteAppsId",
+        "security": [
+          {
+            "bearer": [
+              "apps:write"
+            ]
+          }
+        ],
+        "x-notify-scopes": [
+          "apps:write"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "const": true
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/notifications": {
+      "post": {
+        "summary": "Send a one-shot push",
+        "operationId": "postNotifications",
+        "security": [
+          {
+            "bearer": [
+              "notifications:send"
+            ]
+          }
+        ],
+        "x-notify-scopes": [
+          "notifications:send"
+        ],
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            },
+            "required": false
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "body": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 8000
+                  },
+                  "title": {
+                    "default": "Notify",
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 80
+                  },
+                  "imageUrl": {
+                    "type": "string",
+                    "maxLength": 2048,
+                    "format": "uri"
+                  },
+                  "url": {
+                    "type": "string",
+                    "maxLength": 2048,
+                    "format": "uri"
+                  },
+                  "deviceIds": {
+                    "minItems": 1,
+                    "maxItems": 50,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 100
+                    }
+                  },
+                  "project": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 80
+                  },
+                  "summary": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 500
+                  },
+                  "bodyFormat": {
+                    "type": "string",
+                    "enum": [
+                      "text",
+                      "markdown"
+                    ]
+                  },
+                  "appId": {
+                    "type": "string",
+                    "pattern": "^app_[A-Za-z0-9_-]{8,64}$"
+                  },
+                  "oncall": {
+                    "type": "string",
+                    "pattern": "^ocg_[A-Za-z0-9_-]{8,64}$"
+                  },
+                  "group": {
+                    "type": "string",
+                    "pattern": "^dgrp_[A-Za-z0-9_-]{8,64}$"
+                  }
+                },
+                "required": [
+                  "body"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "$ref": "#/components/schemas/AgentNotificationCreated"
+                    },
+                    {
+                      "$ref": "#/components/schemas/OncallPageCreated"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/interactions": {
+      "get": {
+        "summary": "List the account's pending prompts from every source",
+        "operationId": "getInteractions",
+        "security": [
+          {
+            "bearer": [
+              "interactions:read"
+            ]
+          }
+        ],
+        "x-notify-scopes": [
+          "interactions:read"
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "interactions": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/InboxInteraction"
+                      }
+                    }
+                  },
+                  "required": [
+                    "interactions"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Ask a question (approval, yes/no, or reply)",
+        "operationId": "postInteractions",
+        "security": [
+          {
+            "bearer": [
+              "interactions:create",
+              "notifications:send"
+            ]
+          }
+        ],
+        "x-notify-scopes": [
+          "interactions:create",
+          "notifications:send"
+        ],
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            },
+            "required": false
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "title": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 80
+                  },
+                  "prompt": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 2000
+                  },
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "approval",
+                      "yes_no",
+                      "reply"
+                    ]
+                  },
+                  "imageUrl": {
+                    "type": "string",
+                    "maxLength": 2048,
+                    "format": "uri"
+                  },
+                  "url": {
+                    "type": "string",
+                    "maxLength": 2048,
+                    "format": "uri"
+                  },
+                  "deviceIds": {
+                    "minItems": 1,
+                    "maxItems": 50,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 100
+                    }
+                  },
+                  "group": {
+                    "type": "string",
+                    "pattern": "^dgrp_[A-Za-z0-9_-]{8,64}$"
+                  },
+                  "expiresInSeconds": {
+                    "default": 900,
+                    "type": "integer",
+                    "minimum": 30,
+                    "maximum": 86400
+                  },
+                  "presentation": {
+                    "type": "string",
+                    "enum": [
+                      "notification",
+                      "live_activity"
+                    ]
+                  },
+                  "style": {
+                    "type": "string",
+                    "enum": [
+                      "approval",
+                      "shell",
+                      "verdict",
+                      "signal"
+                    ]
+                  },
+                  "design": {
+                    "type": "object",
+                    "properties": {
+                      "version": {
+                        "type": "number",
+                        "const": 1
+                      },
+                      "template": {
+                        "type": "string",
+                        "enum": [
+                          "approval",
+                          "shell",
+                          "verdict",
+                          "signal"
+                        ]
+                      },
+                      "appearance": {
+                        "type": "string",
+                        "enum": [
+                          "system",
+                          "light",
+                          "dark"
+                        ]
+                      },
+                      "density": {
+                        "type": "string",
+                        "enum": [
+                          "comfortable",
+                          "compact"
+                        ]
+                      },
+                      "emphasis": {
+                        "type": "string",
+                        "enum": [
+                          "balanced",
+                          "title",
+                          "status",
+                          "progress"
+                        ]
+                      },
+                      "showDetail": {
+                        "type": "boolean"
+                      },
+                      "showSymbol": {
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [
+                      "version"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "accentColor": {
+                    "type": "string",
+                    "pattern": "^#[0-9a-fA-F]{6}$"
+                  },
+                  "primaryLabel": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 24
+                  },
+                  "secondaryLabel": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 24
+                  },
+                  "callback": {
+                    "type": "object",
+                    "properties": {
+                      "url": {
+                        "type": "string",
+                        "maxLength": 2048,
+                        "format": "uri"
+                      },
+                      "token": {
+                        "type": "string",
+                        "minLength": 16,
+                        "maxLength": 512
+                      },
+                      "target": {
+                        "type": "object",
+                        "properties": {
+                          "connectorId": {
+                            "type": "string",
+                            "pattern": "^conn_[A-Za-z0-9_-]{8,64}$"
+                          },
+                          "route": {
+                            "type": "string",
+                            "pattern": "^(@|[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)$"
+                          },
+                          "path": {
+                            "type": "string",
+                            "maxLength": 2048,
+                            "pattern": "^\\/[A-Za-z0-9._~!$&'()*+,;=:@%/-]*$"
+                          }
+                        },
+                        "required": [
+                          "connectorId",
+                          "route",
+                          "path"
+                        ]
+                      }
+                    }
+                  },
+                  "webhookId": {
+                    "type": "string",
+                    "pattern": "^whk_[A-Za-z0-9_-]{1,100}$"
+                  }
+                },
+                "required": [
+                  "title",
+                  "prompt",
+                  "kind"
+                ],
+                "allOf": [
+                  {
+                    "not": {
+                      "required": [
+                        "group",
+                        "deviceIds"
+                      ]
+                    }
+                  },
+                  {
+                    "if": {
+                      "properties": {
+                        "presentation": {
+                          "const": "live_activity"
+                        }
+                      },
+                      "required": [
+                        "presentation"
+                      ]
+                    },
+                    "then": {
+                      "properties": {
+                        "kind": {
+                          "enum": [
+                            "approval",
+                            "yes_no"
+                          ]
+                        },
+                        "prompt": {
+                          "maxLength": 240
+                        },
+                        "expiresInSeconds": {
+                          "maximum": 28800
+                        }
+                      },
+                      "not": {
+                        "anyOf": [
+                          {
+                            "required": [
+                              "url"
+                            ]
+                          },
+                          {
+                            "required": [
+                              "imageUrl"
+                            ]
+                          }
+                        ]
+                      }
+                    },
+                    "else": {
+                      "not": {
+                        "anyOf": [
+                          {
+                            "required": [
+                              "style"
+                            ]
+                          },
+                          {
+                            "required": [
+                              "design"
+                            ]
+                          },
+                          {
+                            "required": [
+                              "accentColor"
+                            ]
+                          },
+                          {
+                            "required": [
+                              "primaryLabel"
+                            ]
+                          },
+                          {
+                            "required": [
+                              "secondaryLabel"
+                            ]
+                          }
+                        ]
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InteractionCreated"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/activities": {
+      "get": {
+        "summary": "List Live Activities started by this token",
+        "operationId": "getActivities",
+        "security": [
+          {
+            "bearer": [
+              "activities:read"
+            ]
+          }
+        ],
+        "x-notify-scopes": [
+          "activities:read"
+        ],
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            },
+            "required": false
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "activities": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/LiveActivity"
+                      }
+                    }
+                  },
+                  "required": [
+                    "activities"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Start a Live Activity",
+        "operationId": "postActivities",
+        "security": [
+          {
+            "bearer": [
+              "activities:write"
+            ]
+          }
+        ],
+        "x-notify-scopes": [
+          "activities:write"
+        ],
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            },
+            "required": false
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "key": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 100
+                  },
+                  "replace": {
+                    "default": false,
+                    "type": "boolean"
+                  },
+                  "title": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 80
+                  },
+                  "subtitle": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 120
+                  },
+                  "status": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 60
+                  },
+                  "detail": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 240
+                  },
+                  "progress": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1
+                  },
+                  "symbol": {
+                    "default": "terminal",
+                    "type": "string",
+                    "enum": [
+                      "terminal",
+                      "code",
+                      "build",
+                      "success",
+                      "warning"
+                    ]
+                  },
+                  "privacyMode": {
+                    "default": "standard",
+                    "type": "string",
+                    "enum": [
+                      "standard",
+                      "private"
+                    ]
+                  },
+                  "accentColor": {
+                    "default": "#30D158",
+                    "type": "string",
+                    "pattern": "^#[0-9a-fA-F]{6}$"
+                  },
+                  "style": {
+                    "default": "standard",
+                    "type": "string",
+                    "enum": [
+                      "standard",
+                      "ring",
+                      "hero",
+                      "terminal",
+                      "steps"
+                    ]
+                  },
+                  "design": {
+                    "type": "object",
+                    "properties": {
+                      "version": {
+                        "type": "number",
+                        "const": 1
+                      },
+                      "template": {
+                        "type": "string",
+                        "enum": [
+                          "standard",
+                          "ring",
+                          "hero",
+                          "terminal",
+                          "steps"
+                        ]
+                      },
+                      "appearance": {
+                        "type": "string",
+                        "enum": [
+                          "system",
+                          "light",
+                          "dark"
+                        ]
+                      },
+                      "density": {
+                        "type": "string",
+                        "enum": [
+                          "comfortable",
+                          "compact"
+                        ]
+                      },
+                      "emphasis": {
+                        "type": "string",
+                        "enum": [
+                          "balanced",
+                          "title",
+                          "status",
+                          "progress"
+                        ]
+                      },
+                      "showDetail": {
+                        "type": "boolean"
+                      },
+                      "showSymbol": {
+                        "type": "boolean"
+                      }
+                    },
+                    "required": [
+                      "version"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "deviceIds": {
+                    "minItems": 1,
+                    "maxItems": 50,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 100
+                    }
+                  },
+                  "group": {
+                    "type": "string",
+                    "pattern": "^dgrp_[A-Za-z0-9_-]{8,64}$"
+                  },
+                  "expiresInSeconds": {
+                    "default": 28800,
+                    "type": "integer",
+                    "minimum": 60,
+                    "maximum": 28800
+                  },
+                  "staleAfterSeconds": {
+                    "default": 14400,
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 28800
+                  }
+                },
+                "required": [
+                  "title",
+                  "status"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LiveActivityMutation"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/activities/{identifier}": {
+      "get": {
+        "summary": "Get a Live Activity by ID or key",
+        "operationId": "getActivitiesIdentifier",
+        "security": [
+          {
+            "bearer": [
+              "activities:read"
+            ]
+          }
+        ],
+        "x-notify-scopes": [
+          "activities:read"
+        ],
+        "parameters": [
+          {
+            "name": "identifier",
+            "in": "path",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "activity": {
+                      "$ref": "#/components/schemas/LiveActivity"
+                    }
+                  },
+                  "required": [
+                    "activity"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "summary": "Update a Live Activity",
+        "operationId": "patchActivitiesIdentifier",
+        "security": [
+          {
+            "bearer": [
+              "activities:write"
+            ]
+          }
+        ],
+        "x-notify-scopes": [
+          "activities:write"
+        ],
+        "parameters": [
+          {
+            "name": "identifier",
+            "in": "path",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            },
+            "required": false
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "title": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 80
+                  },
+                  "subtitle": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 120
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "status": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 60
+                  },
+                  "detail": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 240
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "progress": {
+                    "anyOf": [
+                      {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 1
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "symbol": {
+                    "type": "string",
+                    "enum": [
+                      "terminal",
+                      "code",
+                      "build",
+                      "success",
+                      "warning"
+                    ]
+                  },
+                  "privacyMode": {
+                    "type": "string",
+                    "enum": [
+                      "standard",
+                      "private"
+                    ]
+                  },
+                  "accentColor": {
+                    "type": "string",
+                    "pattern": "^#[0-9a-fA-F]{6}$"
+                  },
+                  "style": {
+                    "type": "string",
+                    "enum": [
+                      "standard",
+                      "ring",
+                      "hero",
+                      "terminal",
+                      "steps"
+                    ]
+                  },
+                  "design": {
+                    "anyOf": [
+                      {
+                        "type": "object",
+                        "properties": {
+                          "version": {
+                            "type": "number",
+                            "const": 1
+                          },
+                          "template": {
+                            "type": "string",
+                            "enum": [
+                              "standard",
+                              "ring",
+                              "hero",
+                              "terminal",
+                              "steps"
+                            ]
+                          },
+                          "appearance": {
+                            "type": "string",
+                            "enum": [
+                              "system",
+                              "light",
+                              "dark"
+                            ]
+                          },
+                          "density": {
+                            "type": "string",
+                            "enum": [
+                              "comfortable",
+                              "compact"
+                            ]
+                          },
+                          "emphasis": {
+                            "type": "string",
+                            "enum": [
+                              "balanced",
+                              "title",
+                              "status",
+                              "progress"
+                            ]
+                          },
+                          "showDetail": {
+                            "type": "boolean"
+                          },
+                          "showSymbol": {
+                            "type": "boolean"
+                          }
+                        },
+                        "required": [
+                          "version"
+                        ],
+                        "additionalProperties": false
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "staleAfterSeconds": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 28800
+                  },
+                  "priority": {
+                    "type": "string",
+                    "enum": [
+                      "normal",
+                      "high"
+                    ]
+                  },
+                  "ifSequence": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LiveActivityMutation"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/activities/{identifier}/end": {
+      "post": {
+        "summary": "End a Live Activity",
+        "operationId": "postActivitiesIdentifierEnd",
+        "security": [
+          {
+            "bearer": [
+              "activities:write"
+            ]
+          }
+        ],
+        "x-notify-scopes": [
+          "activities:write"
+        ],
+        "parameters": [
+          {
+            "name": "identifier",
+            "in": "path",
+            "schema": {
+              "type": "string"
+            },
+            "required": true
+          },
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            },
+            "required": false
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "subtitle": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 120
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "status": {
+                    "default": "Complete",
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 60
+                  },
+                  "detail": {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 240
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "progress": {
+                    "anyOf": [
+                      {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 1
+                      },
+                      {
+                        "type": "null"
+                      }
+                    ]
+                  },
+                  "symbol": {
+                    "default": "success",
+                    "type": "string",
+                    "enum": [
+                      "terminal",
+                      "code",
+                      "build",
+                      "success",
+                      "warning"
+                    ]
+                  },
+                  "accentColor": {
+                    "type": "string",
+                    "pattern": "^#[0-9a-fA-F]{6}$"
+                  },
+                  "dismissAfterSeconds": {
+                    "default": 0,
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 14400
+                  },
+                  "ifSequence": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LiveActivityMutation"
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {}
+        }
+      }
+    }
+  }
+}

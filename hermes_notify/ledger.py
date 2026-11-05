@@ -31,6 +31,9 @@ class Ledger:
 
     def claim(self, request_id, request_digest):
         with self._connect() as db:
+            db.execute("DELETE FROM approvals WHERE created_at < datetime('now', '-90 days')")
+            if db.execute("SELECT count(*) FROM approvals").fetchone()[0] >= 10000:
+                return False
             result = db.execute(
                 "INSERT OR IGNORE INTO approvals(request_id, request_digest, state) VALUES (?, ?, 'creating')",
                 (request_id, request_digest),

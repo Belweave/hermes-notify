@@ -1,0 +1,11 @@
+{
+  "source": "https://paper.design/mono/download",
+  "page": "https://paper.design/mono",
+  "release": "1.000",
+  "archiveSha256": "8642652985dc87bf4cfd07c89942899e611c3c774fc25284c0dd4fe86a993a13",
+  "fontSha256": "57b28aaaffc46f85ed5b5adeda22bc7bce0fcdbf3e6f84850c327765fe6fdc6b",
+  "fontArchivePath": "paper-mono-v1.000/fonts/webfonts/PaperMono[wght].woff2",
+  "license": "OFL.txt",
+  "weights": "100 800",
+  "modified": false
+}

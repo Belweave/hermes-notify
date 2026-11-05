@@ -23,8 +23,14 @@ If hosting is unresolved on November 5, use a pre-provisioned HTTPS demo site an
 
 Cut first: team administration, on-call flows, connector setup, offline Mini Apps, and a second hosting provider. Keep their supported Notify interface paths in documentation. Keep the App publish path, one exact approval, replies, project routing, and graceful failures. The entry should make one complete workflow look effortless.
 
-## Three decisions for Preetham
+## Decisions and remaining live work
 
-1. Can the next session send one real approval to the selected phone, using an existing scoped Notify token from env or the OS keychain?
-2. Which HTTPS host should Hermes publish Apps to, and should the first version support existing sites as well as newly generated ones? Recommendation: one existing hosting account plus a bring-your-own-URL path.
-3. Is a release workspace the right flagship demo, or would a personal workflow better represent the product? Recommendation: a release workspace with a useful interactive App, live progress, and one approval that visibly changes its state.
+The hosting and flagship decisions are settled: Cloudflare Workers with a configurable origin and `workers.dev` default, and a release workspace. The first publisher serves the complete workspace template and registers existing HTTPS Apps.
+
+The November 4 local build implements the App, Worker, six Hermes tools, native approval correlation, Live Activity lifecycle/fallback, project grouping, replies, signed webhook receipt, and optional Desktop/Webapp companion. The local rehearsal uses actual Hermes and workerd, with synthetic Notify and sign-in responses. Approve, deny and timeout paths pass. See [VERIFICATION.md](VERIFICATION.md) and the [85-second storyboard](DEMO.md).
+
+The remaining dependencies are:
+
+1. The separately authorized one-prompt phone test is complete: one device accepted the prompt and the human approval returned Hermes `once`. Additional App/activity scopes and target-phone capabilities still need verification for the full workflow.
+2. Later authorization for Worker deployment and secure setup of the publisher token and verified owner subject. The code and Wrangler configuration are prepared locally; no account operation has run.
+3. Verification on the actual phone and authorization for the complete filmed workflow, which sends multiple updates and runs a release action. Publishing and submission remain later actions.

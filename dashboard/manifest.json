@@ -1,0 +1,10 @@
+{
+  "name": "hermes-notify",
+  "label": "Hermes Pocket",
+  "version": "0.2.0",
+  "description": "Read-only status for the Hermes Desktop/Webapp companion. Notify is the phone surface.",
+  "api": "plugin_api.py",
+  "entry": "index.js",
+  "css": "style.css",
+  "tab": { "path": "/hermes-notify", "hidden": true }
+}

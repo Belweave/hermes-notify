@@ -1,1 +1,1 @@
-"""Notify client and approval bridge. No CLI or extra runtime dependencies."""
+"""Hermes Pocket: durable releases, publication, progress, replies and approvals."""

@@ -1,0 +1,9 @@
+Bundled third-party software
+
+@opencode-ai/client@0.0.0-next-16562 — MIT
+@opentunnel/client@0.5.1 — MIT
+@opentunnel/protocol@0.5.1 — MIT
+effect@4.0.2 — MIT
+jose@6.2.4 — MIT
+
+Full license and notice texts are in licenses/.
