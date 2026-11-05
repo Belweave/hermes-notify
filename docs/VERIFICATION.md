@@ -6,7 +6,7 @@ The complete release workflow is implemented and rehearsed locally with syntheti
 
 | Check | Result | What it establishes |
 | --- | --- | --- |
-| Python suite | 123 passed | Native approval safety, registered tools, profile/session binding, durable intents, publication recovery, progress/fallback, replies, bounded storage and unload. |
+| Python suite | 124 passed | Native approval safety, registered tools, profile/session binding, durable intents, publication recovery, progress/fallback, replies, bounded storage and unload. |
 | Worker suite | 22 passed | Actual workerd and SQLite, official SDK verification with synthetic keys, conflicts/replay, authentication, signature/freshness checks, reply/event deduplication, storage failure/restart and production assets. |
 | App browser suite | 42 passed | Chromium scenarios for phone/desktop layouts, safe rendering, replies, retries, stale runs, expiry, offline/visibility handling and refresh pacing. |
 | Desktop SDK suite | 9 passed | Actual pinned SDK exports/import rules, registration, profile/connection races, cleanup, link policy and official font integrity. |

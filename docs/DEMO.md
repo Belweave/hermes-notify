@@ -36,3 +36,9 @@ The remaining dependencies are a separately authorized Worker deployment, a secu
 Check the actual phone's consent flow, App cookies, deep link, delivery and Live Activity capability. Then authorize the complete rehearsal's multiple updates and release action. Keep the original one-prompt authorization limited to its original scope. Live webhook delivery is optional for this demo; polling the active approval and collecting replies on demand work behind NAT.
 
 If a permission, network or hosting step fails, show its saved failure and recovery instead of editing it into a claimed successful release. No live recording, public video, repository push or hackathon submission has been made in this local build.
+
+## Submission sequence
+
+The [official announcement](https://x.com/NousResearch/status/2118094256438936062) requires a catalog PR, an X demo video tagging `@NousResearch`, and both links in the [submission form](https://form.typeform.com/to/FwJLvOln). The form also asks for the plugin title, description, contact email and Discord username. Submit once the PR is open; maintainer merge is not a prerequisite for entering. Catalog acceptance remains a separate review decision.
+
+The announcement says November 11, 2026 at 5 PM EST; the form's thank-you copy says 1 PM PST, equivalent to 4 PM EST. Plan to finish before the earlier 4 PM EST time. The 85-second storyboard fits the under-90-second requirement, but the actual exported video must also be measured and show verified working behavior. Publishing, posting, opening the PR and submitting the form remain separate authorized actions.

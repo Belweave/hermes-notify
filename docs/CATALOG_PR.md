@@ -1,12 +1,34 @@
 # Draft: add Hermes Pocket to the plugin catalog
 
-Local text for a future catalog PR. Nothing has been opened or published. The proposed public repository is `https://github.com/Belweave/hermes-notify`; confirm that destination when publication is authorized. Replace every `0000000000000000000000000000000000000000` in [the entry](../plugin-catalog/hermes-notify.yaml) with the exact reviewed 40-character commit, including screenshot URLs. The quoted version is `"0.2.0"`; the SHA is the install pin.
+Local text for a future catalog PR. The repository is `https://github.com/Belweave/hermes-notify`. Use the complete reviewed commit in [the entry](../plugin-catalog/hermes-notify.yaml) and every screenshot URL. Publish that commit before opening the catalog PR; this local audit does not establish remote reachability. The quoted version is `"0.2.0"`; the SHA is the install pin. The future upstream PR adds only `plugin-catalog/hermes-notify.yaml`, not the standalone implementation. Subsequent updates need a new catalog PR, a version label matching the new pin, and screenshot URLs updated to that pin.
 
-## What changes for the user
+## What does this PR do?
 
 Hermes Pocket keeps a release task available on a phone through Notify by belweave. Hermes publishes a full release workspace to a configured Cloudflare Worker, sends its Notify App link, reports measured progress, asks for an exact native approval, and publishes the result after the release action finishes. Written replies return to their original run and session. The optional Desktop/Webapp pane shows Apps, runs, pending decisions and delivery health.
 
 The first publisher updates the supplied release template and can register existing HTTPS Apps. Worker infrastructure is provisioned separately. The Notify CLI is optional. The Python runtime has no third-party dependencies or LLM calls.
+
+## Related Issue
+
+No related issue is claimed or automatically closed. Read-only GitHub searches on November 4, 2026 covered open and closed PRs/issues for `Belweave` and the Hermes Notify topic, plus the current catalog/source. No matching Belweave submission was returned. The broad hyphenated-name search returned unrelated Notify/kanban work and is not evidence of an exhaustive uniqueness search. Repeat the focused search immediately before opening the PR.
+
+## Type of Change
+
+- [x] New feature: a community catalog entry for a standalone plugin.
+
+## Changes Made
+
+- Add `plugin-catalog/hermes-notify.yaml` in the upstream catalog with an exact commit, truthful platform metadata, screenshots and matching capabilities.
+- Keep the Python runtime, Worker, App, optional Desktop surface, bundled skill, tests and documentation in the standalone repository.
+
+## How to Test
+
+1. In a clean checkout of the submitted plugin commit, run `hermes plugins validate . --install-deps` and inspect every warning. Run `hermes plugins doctor . --ci` for actual discovery and registration.
+2. Follow the README development setup, then run `.venv/bin/python -m pytest`, `node worker/scripts/isolated.mjs test`, and the App/Desktop/backend commands in `docs/VERIFICATION.md`.
+3. Build the Worker and run `.venv/bin/python scripts/release_demo.py --answer approve`, then the `deny` and `timeout` variants. Check the action receipt exists only for approval and each result belongs to the original task.
+4. In the future `hermes-agent` catalog PR checkout, run its entry-schema validator and prescribed CI checks. Those upstream-PR checks are not claimed by the standalone test results.
+
+Tested platform: macOS on arm64. Linux and Windows are not claimed by this entry. No Apple-platform build is needed.
 
 ## Public extension surfaces and declarations
 
@@ -46,15 +68,15 @@ Worker publication uses durable operation IDs and conditional revisions. Expired
 ## Validation and compatibility
 
 - Tested Hermes source: `ed1afb082eb3e46cf2edae9d8f68fb67b09ee4df`. A minimum released SemVer is not yet verified, so no invented `requires_hermes` is declared. The draft lists only tested `macos` and records this limitation in `known_issues`.
-- Python: **123 tests**. Worker: **22 tests**. App: **42 browser scenarios**. Desktop SDK: **9 tests**. Desktop backend: **27 tests**. Total: **223**.
+- Python: **124 tests**. Worker: **22 tests**. App: **42 browser scenarios**. Desktop SDK: **9 tests**. Desktop backend: **27 tests**. Total: **224**.
 - The actual Hermes loader/registry and approval gate, plus local workerd, pass approve/deny/timeout rehearsals. Only approval executes the synthetic action. All paths finish the mock Live Activity. Notify's CLI is absent from the rehearsal path.
 - Native entrypoint skill registration, public session accessor, Unicode/digest agreement and `OPERATION_RESPONSE_EXPIRED` recovery are covered.
-- The official catalog entry validator accepts the draft structure. All-zero SHA and screenshot pins intentionally remain placeholders; this does not prove public repository reachability.
-- The final local commit must pass `hermes plugins validate --install-deps` and the official payload scan from a clean export. The commit-specific CLI receipt is kept outside the committed tree to avoid a self-referencing SHA. Copy its SHA and result into the submitted PR after authorization; [verification](VERIFICATION.md) records the process and reviewed development-helper caution.
+- The official catalog entry validator accepts the structure. The exact candidate and screenshot pins are recorded in the entry; structural validation does not establish remote reachability.
+- The [submission checklist](SUBMISSION-CHECKLIST.md) contains the complete CLI output and per-guideline evidence. Commit-specific receipts remain outside the committed tree to avoid a self-referencing SHA. The clean candidate export must pass `hermes plugins validate --install-deps` and the official payload scan before its pin is submitted; [verification](VERIFICATION.md) explains the reviewed development-helper warning.
 
 The complete staged package passes all 16 Hermes admission checks, with a `safe` security scan and no runtime core override. Its one reviewed warning names development helpers: `scripts/release_demo.py` uses the real manager and session setters to simulate the host; `scripts/spike.py` uses the manager; `scripts/validate_package.py` invokes the admission checker. These imports exercise the host in explicitly invoked local tooling. Production registration uses only the public surfaces listed above. The lightweight environment also reports absent optional built-in dependencies; its collision check alone is not a full production-host boot. The final CLI receipt must retain these diagnostics rather than suppress them.
 
-The full workflow has only been rehearsed with synthetic Notify responses. A separate authorized phone test passed: one accepted device and an approved, correlated Hermes `once` decision. A deployed Worker, verified owner, real phone sign-in, deep link, progress display, live webhook behavior and complete filmed workflow still need verification. Official native Hermes mobile plugin rendering is unverified; Notify supplies the phone App surface. The repository, catalog PR, video and submission are not yet published.
+The full workflow has only been rehearsed with synthetic Notify responses. A separate authorized phone test passed: one accepted device and an approved, correlated Hermes `once` decision. A deployed Worker, verified owner, real phone sign-in, deep link, progress display, live webhook behavior and complete filmed workflow still need verification. Official native Hermes mobile plugin rendering is unverified; Notify supplies the phone App surface. This pass does not publish a candidate, open a catalog PR, post a video or submit the form.
 
 ## Screenshots
 
@@ -73,3 +95,18 @@ Before posting this text in the external catalog PR, replace the relative image 
 Authored source uses [MIT](../LICENSE). The unchanged official Notify Tools 0.14.2 SDK uses Apache-2.0; all bundled third-party notices, including the jose MIT license, are preserved. [Provenance](../worker/VENDOR.md) records the official archive URL, checksum and 135 file hashes. Paper Mono is self-hosted with its SIL Open Font License. No executable binary, bytecode, dependency directory or hidden-code archive is committed.
 
 The entry remains `tier: community`; only Nous maintainers may set verified status. This draft follows the [official submission guide](https://hermes-agent.nousresearch.com/docs/developer-guide/plugins/catalog-submission) and [catalog README](https://github.com/NousResearch/hermes-agent/blob/main/plugin-catalog/README.md), both read in full on November 4, 2026 ET.
+
+## Upstream PR template checklist
+
+- [x] Read the pinned contribution guide, catalog rules and PR template; evidence is in `docs/SUBMISSION-CHECKLIST.md`.
+- [x] Searched existing PRs/issues and source; repeat before submission because results can change.
+- [x] Proposed upstream change is one catalog entry; no standalone implementation files go into Hermes core.
+- [x] Relevant README, setup, configuration, tool descriptions, bundled skill and demo documentation are present.
+- [x] Plugin-specific regression tests and local integration rehearsals pass; screenshots are labeled with their fixture provenance.
+- [x] Cross-platform impact considered; only tested macOS is declared, with no claim of Windows ACL or Linux verification.
+- [x] Core `cli-config.yaml.example`, `AGENTS.md` and architecture changes: not applicable to a catalog-only PR. Plugin settings belong to this manifest and README.
+- [x] New core skill submission: not applicable. The release skill stays inside the standalone plugin; its frontmatter, section order and package registration are checked locally.
+- [ ] Future catalog PR commit/title uses Conventional Commits, for example `feat(catalog): add Hermes Pocket`. Local audit commits use that convention; older standalone history is preserved.
+- [ ] Run upstream `pytest tests/ -q`, `python scripts/check` and Windows-footgun checks if required in the actual catalog PR checkout. No upstream checkout with this proposed entry exists yet, so these boxes are not marked passed.
+- [ ] Manually run the model-driven skill after live setup is authorized. Deterministic loader/rehearsal checks do not establish an LLM's end-to-end behavior.
+- [ ] Complete the live phone workflow and film the demo. Link the final catalog PR and X video, tag `@NousResearch`, then submit both links through the official form before the conservative deadline in the submission checklist.

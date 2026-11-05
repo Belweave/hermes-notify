@@ -1,0 +1,116 @@
+{
+  "retrievedAt": "2026-11-05T01:53:42.651261+00:00",
+  "upstreamCommit": "ed1afb082eb3e46cf2edae9d8f68fb67b09ee4df",
+  "treeComplete": true,
+  "files": [
+    {
+      "path": ".github/PULL_REQUEST_TEMPLATE.md",
+      "url": "https://raw.githubusercontent.com/NousResearch/hermes-agent/ed1afb082eb3e46cf2edae9d8f68fb67b09ee4df/.github/PULL_REQUEST_TEMPLATE.md",
+      "sha256": "a4e8cd27312970863d2a19006c0e7f1868d4b94ea563b11405e519e96143f0da",
+      "bytes": 3447
+    },
+    {
+      "path": "CONTRIBUTING.es.md",
+      "url": "https://raw.githubusercontent.com/NousResearch/hermes-agent/ed1afb082eb3e46cf2edae9d8f68fb67b09ee4df/CONTRIBUTING.es.md",
+      "sha256": "d6d92b150d64224ef396f3f8565406823ef437c6d521acc9224b76203556a405",
+      "bytes": 29417
+    },
+    {
+      "path": "CONTRIBUTING.md",
+      "url": "https://raw.githubusercontent.com/NousResearch/hermes-agent/ed1afb082eb3e46cf2edae9d8f68fb67b09ee4df/CONTRIBUTING.md",
+      "sha256": "22292387802fbfc15b33fe184610cedc627300eb6229d5127b7aed955262fa2f",
+      "bytes": 57145
+    },
+    {
+      "path": "plugin-catalog/README.md",
+      "url": "https://raw.githubusercontent.com/NousResearch/hermes-agent/ed1afb082eb3e46cf2edae9d8f68fb67b09ee4df/plugin-catalog/README.md",
+      "sha256": "5d9ab744164bfc1c48c99d0f3051e4cc9d203cebf355287727eebe7fb176a5f3",
+      "bytes": 17601
+    },
+    {
+      "path": "website/docs/developer-guide/contributing.md",
+      "url": "https://raw.githubusercontent.com/NousResearch/hermes-agent/ed1afb082eb3e46cf2edae9d8f68fb67b09ee4df/website/docs/developer-guide/contributing.md",
+      "sha256": "44a23e78b1e1bf4223a648cb3c82eeb300323747ffc4243b180593573ceb8586",
+      "bytes": 24051
+    },
+    {
+      "path": "website/docs/developer-guide/plugins/catalog-submission.md",
+      "url": "https://raw.githubusercontent.com/NousResearch/hermes-agent/ed1afb082eb3e46cf2edae9d8f68fb67b09ee4df/website/docs/developer-guide/plugins/catalog-submission.md",
+      "sha256": "50fb0d704de1f1a1306b55f8db3d7a6a0d97f1343865d5c227069593ec6e2f19",
+      "bytes": 17296
+    },
+    {
+      "path": "website/docs/developer-guide/plugins/index.md",
+      "url": "https://raw.githubusercontent.com/NousResearch/hermes-agent/ed1afb082eb3e46cf2edae9d8f68fb67b09ee4df/website/docs/developer-guide/plugins/index.md",
+      "sha256": "7605bbacafa732e75024b6447561c1806609bfed4b0f3de48f89b9b5a7acf24a",
+      "bytes": 138226
+    },
+    {
+      "path": "website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/developer-guide/contributing.md",
+      "url": "https://raw.githubusercontent.com/NousResearch/hermes-agent/ed1afb082eb3e46cf2edae9d8f68fb67b09ee4df/website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/developer-guide/contributing.md",
+      "sha256": "f21951cd496199ec67b67d78c5bc2d98bf46d3aea644f5ccf859f3c8a7897e87",
+      "bytes": 10256
+    }
+  ],
+  "announcement": {
+    "primaryUrl": "https://x.com/NousResearch/status/2118094256438936062",
+    "completePrimaryTextRecovered": true,
+    "files": [
+      {
+        "file": "x-oembed.json",
+        "url": "https://publish.twitter.com/oembed?url=https%3A%2F%2Ftwitter.com%2FNousResearch%2Fstatus%2F2118094256438936062&omit_script=true",
+        "status": 200,
+        "bytes": 1098,
+        "sha256": "3b887d72c219c5b8b2a086c34ff416f10fb932d8fa401256d4ec304dd8fc8052"
+      },
+      {
+        "file": "x-syndication.json",
+        "url": "https://cdn.syndication.twimg.com/tweet-result?id=2118094256438936062&lang=en",
+        "status": 200,
+        "bytes": 2,
+        "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+      },
+      {
+        "file": "submission-form.json",
+        "url": "https://api.typeform.com/forms/FwJLvOln",
+        "status": 200,
+        "bytes": 4079,
+        "sha256": "45a2fb0aaf813c10458a69beda3a6daa4be943261a5006b6d71ccb776fa43de7"
+      },
+      {
+        "file": "x-post.html",
+        "url": "https://x.com/NousResearch/status/2118094256438936062",
+        "status": 200,
+        "bytes": 198179,
+        "sha256": "8b9b170dd578f53b3c00dcc54cf1028652e03a174aaece75cc57f28b4f695f39"
+      }
+    ]
+  },
+  "duplicateSearch": [
+    {
+      "query": "repo:NousResearch/hermes-agent is:pr \"hermes-notify\"",
+      "url": "https://api.github.com/search/issues?q=repo%3ANousResearch%2Fhermes-agent+is%3Apr+%22hermes-notify%22&per_page=10",
+      "total": 513,
+      "incomplete": false
+    },
+    {
+      "query": "repo:NousResearch/hermes-agent is:pr Belweave",
+      "url": "https://api.github.com/search/issues?q=repo%3ANousResearch%2Fhermes-agent+is%3Apr+Belweave&per_page=10",
+      "total": 0,
+      "incomplete": false
+    },
+    {
+      "query": "repo:NousResearch/hermes-agent is:issue \"hermes-notify\"",
+      "url": "https://api.github.com/search/issues?q=repo%3ANousResearch%2Fhermes-agent+is%3Aissue+%22hermes-notify%22&per_page=10",
+      "total": 212,
+      "incomplete": false
+    },
+    {
+      "query": "repo:NousResearch/hermes-agent is:issue Belweave",
+      "url": "https://api.github.com/search/issues?q=repo%3ANousResearch%2Fhermes-agent+is%3Aissue+Belweave&per_page=10",
+      "total": 0,
+      "incomplete": false
+    }
+  ],
+  "scope": "Read-only public-source audit; no form submission or account credentials."
+}

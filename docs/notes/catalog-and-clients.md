@@ -129,13 +129,13 @@ Lesson: the artifact is the product. A Notify demo should open and use the gener
 
 The primary [submission form][form] was read through its unauthenticated [form-definition API][form-api], without submitting anything. It requires plugin title, description, email, Discord username, an X demo-post URL, and a GitHub catalog-PR URL. It explicitly asks for a demo video on X tagging `@nousresearch` and directs entrants to the official catalog-submission instructions.
 
-The original [Nous Research announcement on X][announcement] is dated November 4, 2026 in X's public embed response and confirms a seven-day event with $20,000 in cash prizes. The embed truncates the longer post. Direct access to the full X page returned 403 during research.
+The original [Nous Research announcement on X][announcement] is dated November 4, 2026. The initial embed was truncated and an earlier direct read returned 403. The November 4 submission audit subsequently recovered the complete announcement from the primary X page with HTTP 200; source metadata is in [SUBMISSION-SOURCES.json](../SUBMISSION-SOURCES.json).
 
-A [third-party mirror][announcement-mirror] reproduces the fuller announcement: 5 PM EST on November 11; usefulness, reliability, polish, and creativity; preference for plugins doing more than a prompt or skill; and a demo under 90 seconds showing working behavior. These align with the supplied brief. Treat them as supplied requirements corroborated by a mirror, not as independently recovered full text from the primary X page.
+The complete primary announcement confirms November 11 at 5 PM EST, judging on usefulness, reliability, polish and creativity, preference for functionality beyond a prompt or skill, and a working demo under 90 seconds. The earlier [mirror][announcement-mirror] is supplementary evidence only.
 
 The form's thank-you description instead says the event ends on November 11 at **1 PM PST**. That equals **4 PM EST**, one hour earlier. It is thank-you copy, not a verified server-enforced cutoff. Neither source should be silently corrected to match the other. The safe planning assumption is to submit before 4 PM EST if authorized, and have the final candidate and video ready well before then.
 
-The public form establishes that a catalog PR link is required; it does not establish that the PR must already be merged at submission time. Catalog acceptance still depends on maintainer review. Do not promise automatic marketplace admission or a judging outcome.
+The primary announcement explicitly permits form submission as soon as the catalog PR is open; prior merge is not required. Catalog acceptance still depends on maintainer review. Do not promise automatic marketplace admission or a judging outcome.
 
 The official mobile page currently offers a waitlist. A [public issue][mobile-issue] reports a full Android testing group, but that is a user report, not a current capacity guarantee. The attempted public `NousResearch/hermes-mobile-beta` repository read returned 404. That does not prove the project does not exist; it prevents verification of its source or plugin UI contract here.
 

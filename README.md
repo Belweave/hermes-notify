@@ -6,6 +6,26 @@ The local implementation includes a complete release App, a configurable Cloudfl
 
 The full workflow passes locally with real Hermes, local workerd, and synthetic Notify responses. A separate authorized phone test also passed: one real approval returned Hermes's `once` decision. **Worker deployment, App sign-in, deep links and live progress remain unverified.** See [verification](docs/VERIFICATION.md) and the [85-second demo plan](docs/DEMO.md).
 
+## Install
+
+The source repository is [Belweave/hermes-notify](https://github.com/Belweave/hermes-notify). This is a catalog candidate; installation by the bare catalog name becomes available only after maintainer acceptance. Use a Hermes build with the public approval transport API. The verified source revision is recorded below; no minimum released version is claimed.
+
+For a published candidate, set `POCKET_COMMIT` to the complete 40-character reviewed commit from the [catalog entry](plugin-catalog/hermes-notify.yaml), then install into the intended Hermes profile without enabling it yet:
+
+```sh
+hermes plugins install Belweave/hermes-notify --ref "$POCKET_COMMIT" --no-enable
+hermes plugins doctor hermes-notify --ci
+```
+
+For a maintainer's local checkout, run this from the repository root instead. It installs committed `HEAD`; uncommitted edits are not included:
+
+```sh
+hermes plugins install "file://$(pwd)" --ref "$(git rev-parse HEAD)" --no-enable
+hermes plugins doctor hermes-notify --ci
+```
+
+Hermes warns about the local `file://` source. No remote is needed for that source. Configure credentials and settings as described below, then run `hermes plugins enable hermes-notify` and restart the Hermes session. Use `hermes plugins disable hermes-notify` and reload to stop the runtime. The Desktop contribution has a separate opt-in toggle. A source export from `scripts/stage_plugin.py` is for inspection and validation, not an argument accepted by `hermes plugins install`.
+
 ## Rehearse locally
 
 Requires Python 3.11+, `uv`, and Node 22.23+ for Worker development. The harness installs no normal Hermes profile and reads no real credential.
@@ -35,7 +55,7 @@ Results go to `.local/demo/<timestamp>-<answer>/`: `summary.json`, `workspace.js
 | `notify_replies` | Collect replies for the original run and session; optionally inject them when both Hermes and the operator permit it. |
 | `notify_status` | Read bounded local status and unresolved operations without network traffic. |
 
-The bundled `notify-release-workspace` skill guides these tools. Hermes's native approval transport carries the immutable command request to Notify and returns only `once` or `deny`. Request IDs, digests, scope and deadlines stay under host control. An approval alone never marks a release shipped; the caller must first execute and verify the release action, then report its result. Written replies are task input, never execution permission.
+Load the bundled skill explicitly with `skill_view("hermes-notify:notify-release-workspace")`; native plugin skills are namespaced and do not appear automatically in the system prompt. Hermes's native approval transport carries the immutable command request to Notify and returns only `once` or `deny`. Request IDs, digests, scope and deadlines stay under host control. An approval alone never marks a release shipped; the caller must first execute and verify the release action, then report its result. Written replies are task input, never execution permission.
 
 The first publisher updates the complete release template and its data. It does not upload arbitrary generated code or deploy Worker infrastructure. Existing-URL registration validates the URL without fetching arbitrary destinations. Notify registration is separate from hosting.
 
@@ -43,7 +63,7 @@ The first publisher updates the complete release template and its data. It does 
 
 Use the [Worker setup guide](docs/WORKER.md) to prepare a host. `worker/wrangler.jsonc` enables `workers.dev`; set `worker_name` and `worker_subdomain` below to its hostname. Set `publisher_origin` instead for a custom HTTPS origin. The Worker needs a publisher secret and a verified, origin-specific owner subject before private browser access works. No first-visitor enrollment is provided.
 
-Stage an installable directory with `.venv/bin/python scripts/stage_plugin.py`. Install that directory through Hermes's plugin manager in the intended profile. Keep the backend and optional Desktop toggle separate. The plugin is disabled by default; a configured profile can use:
+After installing, merge these keys into the intended Hermes profile's `config.yaml`; preserve its other settings and existing enabled plugins. Keep the backend and optional Desktop toggle separate. The plugin is disabled by default; a configured profile can use:
 
 ```yaml
 plugins:
@@ -106,4 +126,4 @@ node worker/scripts/isolated.mjs test
 node --experimental-vm-modules --test desktop/tests/plugin.test.mjs
 ```
 
-The [verification guide](docs/VERIFICATION.md) also covers the App browser suite, backend tests and catalog admission check. UI fonts are the official self-hosted Paper Mono WOFF2 files with their SIL Open Font License. [Research](docs/RESEARCH.md), [design](docs/DESIGN.md), [shared contract](docs/IMPLEMENTATION.md), and [milestones](docs/PLAN.md) record source evidence and the remaining live work.
+The [verification guide](docs/VERIFICATION.md) also covers the App browser suite, backend tests and catalog admission check. The [submission checklist](docs/SUBMISSION-CHECKLIST.md) maps the official guidelines to local evidence and records the remaining publishing and filming steps. UI fonts are the official self-hosted Paper Mono WOFF2 files with their SIL Open Font License. [Research](docs/RESEARCH.md), [design](docs/DESIGN.md), [shared contract](docs/IMPLEMENTATION.md), and [milestones](docs/PLAN.md) record source evidence and the remaining live work.
