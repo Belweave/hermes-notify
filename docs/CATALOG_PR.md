@@ -1,6 +1,6 @@
 # Catalog PR: add Hermes Pocket to the plugin catalog
 
-The catalog PR is open: [NousResearch/hermes-agent#149220](https://github.com/NousResearch/hermes-agent/pull/149220). This is its description text. The repository is public at https://github.com/Belweave/hermes-notify. [The entry](../plugin-catalog/hermes-notify.yaml) is pinned to `d4da572ccfcca229b20ada76e0457eee09768430`, which is on public `main` and includes the strengthened regression tests from `6dfd871`, and its screenshot URLs use the same commit. The quoted version is `"0.2.0"`; the SHA is the install pin. The upstream PR adds only `plugin-catalog/hermes-notify.yaml`, not the standalone implementation. Subsequent updates need a new catalog PR, a version label matching the new pin, and screenshot URLs updated to that pin.
+The catalog PR is open: [NousResearch/hermes-agent#149220](https://github.com/NousResearch/hermes-agent/pull/149220). This is its description text. The repository is public at https://github.com/Belweave/hermes-notify. [The entry](../plugin-catalog/hermes-notify.yaml) is pinned to `698b66b6d64a87d317ba97938f37f9ed75f04cd6`, which is on public `main`. It adds the explicit `hermes-notify/0.2.0` User-Agent fix (workers.dev answers Python's default agent with 403) on top of the Paper design pass and the regression tests from `6dfd871`. Its screenshot URLs use the same commit. The quoted version is `"0.2.0"`; the SHA is the install pin. The upstream PR adds only `plugin-catalog/hermes-notify.yaml`, not the standalone implementation. Subsequent updates need a new catalog PR, a version label matching the new pin, and screenshot URLs updated to that pin.
 
 ## What does this PR do?
 
@@ -68,7 +68,7 @@ Worker publication uses durable operation IDs and conditional revisions. Expired
 ## Validation and compatibility
 
 - Tested Hermes source: `ed1afb082eb3e46cf2edae9d8f68fb67b09ee4df`. A minimum released SemVer is not yet verified, so no invented `requires_hermes` is declared. The draft lists only tested `macos` and records this limitation in `known_issues`.
-- Python: **126 tests**. Worker: **23 tests**. App: **42 browser scenarios**. Desktop SDK: **9 tests**. Desktop backend: **28 tests**. Total: **228**.
+- Python: **127 tests**. Worker: **23 tests**. App: **72 browser scenarios**. Desktop SDK: **9 tests**. Desktop backend: **28 tests**. Total: **259**.
 - The actual Hermes loader/registry and approval gate, plus local workerd, pass approve/deny/timeout rehearsals. Only approval executes the synthetic action. All paths finish the mock Live Activity. Notify's CLI is absent from the rehearsal path.
 - Native entrypoint skill registration, public session accessor, Unicode/digest agreement and `OPERATION_RESPONSE_EXPIRED` recovery are covered.
 - The official catalog entry validator accepts the structure. The pinned commit and all three screenshot URLs resolve on GitHub.
@@ -76,7 +76,7 @@ Worker publication uses durable operation IDs and conditional revisions. Expired
 
 The complete staged package passes all 16 Hermes admission checks, with a `safe` security scan and no runtime core override. Its one reviewed warning names development helpers: `scripts/release_demo.py` uses the real manager and session setters to simulate the host; `scripts/spike.py` uses the manager; `scripts/validate_package.py` invokes the admission checker. These imports exercise the host in explicitly invoked local tooling. Production registration uses only the public surfaces listed above. The lightweight environment also reports absent optional built-in dependencies; its collision check alone is not a full production-host boot. The final CLI receipt must retain these diagnostics rather than suppress them.
 
-The full workflow has only been rehearsed with synthetic Notify responses. A separate authorized phone test passed: one accepted device and an approved, correlated Hermes `once` decision. A deployed Worker, verified owner, real phone sign-in, deep link, progress display, live webhook behavior and complete filmed workflow still need verification. Official native Hermes mobile plugin rendering is unverified; Notify supplies the phone App surface. The catalog PR, video post and form submission are still pending.
+The full workflow has only been rehearsed with synthetic Notify responses. A separate authorized phone test passed: one accepted device and an approved, correlated Hermes `once` decision. A deployed Worker, verified owner, real phone sign-in, deep link, progress display, live webhook behavior and complete filmed workflow still need verification. Official native Hermes mobile plugin rendering is unverified; Notify supplies the phone App surface. The video post and form submission are still pending.
 
 ## Screenshots
 
