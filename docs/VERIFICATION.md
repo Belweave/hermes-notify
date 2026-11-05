@@ -51,7 +51,7 @@ The test changes no normal Hermes settings. It sends one interaction and may sen
 ## Deliberate spike limits
 
 - No hosted App publishing, Live Activity, project inbox, reply-to-session tool, MCP adapter, CLI setup, webhook receiver, or Desktop panel is implemented. Those are specified in [DESIGN.md](DESIGN.md).
-- No authenticated MCP inventory, real webhook delivery, pass exchange, real device rendering, or hosted App launch was exercised.
+- Preetham supplied an authenticated schema-only MCP inventory covering 99 tools. No MCP tool execution, real webhook delivery, pass exchange, device rendering, or hosted App launch was exercised.
 - A create timeout denies locally and leaves an unknown remote result to expire. The spike does not implement production outbox reconciliation or retry.
 - The ledger prevents repeated consumption of a host request. It does not recreate an in-memory Hermes approval after a process crash. `consumed` records the plugin's decision emission, not successful execution of an action.
 - Unload marks in-flight work canceled. A blocking socket operation can continue until its bounded timeout; Hermes has an independent deadline and discards late results. No forced thread termination is claimed.

@@ -1,0 +1,791 @@
+{
+ "source": "GetDynamicTools user-notify (authenticated), 2026-11-04 ET",
+ "note": "Condensed: name, required scopes, required params, key constraints. Full JSON Schema transcribed in summary form.",
+ "count": 99,
+ "tools": [
+  {
+   "name": "activities_end",
+   "scopes": "activities:write",
+   "required": [
+    "activity"
+   ],
+   "constraints": "status default \"Complete\"; subtitle<=120|null, detail<=240|null, progress 0..1|null; symbol enum terminal|code|build|success|warning (default success); dismissAfterSeconds 0..14400; ifSequence; idempotencyKey<=200; HTTP 200 may be queued"
+  },
+  {
+   "name": "activities_get",
+   "scopes": "activities:read",
+   "required": [
+    "activity"
+   ],
+   "constraints": ""
+  },
+  {
+   "name": "activities_list",
+   "scopes": "activities:read",
+   "required": [],
+   "constraints": "limit 1..100; only activities started by this token"
+  },
+  {
+   "name": "activities_start",
+   "scopes": "activities:write",
+   "required": [
+    "title",
+    "status"
+   ],
+   "constraints": "key<=100; replace bool; title<=80; subtitle<=120; status<=60; detail<=240; progress 0..1; symbol enum (default terminal); privacyMode standard|private; accentColor #RRGGBB default #30D158; style standard|ring|hero|terminal|steps; design{version:1,template,appearance system|light|dark,density,emphasis,showDetail,showSymbol}; deviceIds 1..50; group dgrp_; expiresInSeconds 60..28800 (default 28800); staleAfterSeconds 0..28800 (default 14400); max 5 concurrent/device -> 422 ACTIVITY_CAPACITY_EXCEEDED"
+  },
+  {
+   "name": "activities_update",
+   "scopes": "activities:write",
+   "required": [
+    "activity"
+   ],
+   "constraints": "same fields as start (nullable subtitle/detail/progress/design); priority normal|high (high: 4/min, 20/h per activity, else downgraded with priorityReason budget_exhausted); ifSequence"
+  },
+  {
+   "name": "activity_feed",
+   "scopes": "events:read",
+   "required": [],
+   "constraints": "filter all|notification|live_activity|response; page>=0; 20/page"
+  },
+  {
+   "name": "apps_create",
+   "scopes": "apps:write",
+   "required": [
+    "name",
+    "url"
+   ],
+   "constraints": "name<=40; url<=2048; iconUrl; project<=80; teamId team_; existing URL is updated (upsert)"
+  },
+  {
+   "name": "apps_get",
+   "scopes": "apps:read",
+   "required": [
+    "appId"
+   ],
+   "constraints": ""
+  },
+  {
+   "name": "apps_list",
+   "scopes": "apps:read",
+   "required": [],
+   "constraints": ""
+  },
+  {
+   "name": "apps_remove",
+   "scopes": "apps:write",
+   "required": [
+    "appId"
+   ],
+   "constraints": ""
+  },
+  {
+   "name": "apps_revoke",
+   "scopes": "apps:write",
+   "required": [
+    "appId"
+   ],
+   "constraints": "revokes calling account consent only; cannot grant consent or issue passes"
+  },
+  {
+   "name": "apps_share",
+   "scopes": "apps:write",
+   "required": [
+    "appId",
+    "teamId"
+   ],
+   "constraints": "teamId team_|null; notify bool; only adder can move"
+  },
+  {
+   "name": "apps_update",
+   "scopes": "apps:write",
+   "required": [
+    "appId"
+   ],
+   "constraints": "name,url,iconUrl|null,project|null,publicClient bool; new origin clears consent; changing publicClient resets grants+storage; owner of personal registration only"
+  },
+  {
+   "name": "ask",
+   "scopes": "interactions:create+notifications:send+interactions:read",
+   "required": [
+    "title",
+    "prompt",
+    "kind"
+   ],
+   "constraints": "kind approval|yes_no|reply; title<=80; prompt<=2000 (<=240 if live_activity); waits <=25s (timeoutSeconds up to 600 accepted but capped); expiresInSeconds 30..86400 default 900 (<=28800 live_activity); presentation notification|live_activity; style/design/accentColor/primaryLabel<=24/secondaryLabel<=24 ONLY with live_activity; url/imageUrl NOT allowed with live_activity; group and deviceIds mutually exclusive; callback{url,token 16..512,target{connectorId,route,path}}; webhookId whk_"
+  },
+  {
+   "name": "auth_revoke",
+   "scopes": "any",
+   "required": [],
+   "constraints": "signs MCP client out"
+  },
+  {
+   "name": "auth_status",
+   "scopes": "any",
+   "required": [],
+   "constraints": "lists granted scopes"
+  },
+  {
+   "name": "billing_get",
+   "scopes": "billing:read",
+   "required": [],
+   "constraints": ""
+  },
+  {
+   "name": "connectors_create",
+   "scopes": "connectors:write",
+   "required": [
+    "name",
+    "tunnelId",
+    "hostname"
+   ],
+   "constraints": "tunnelId ^[a-z0-9]+$ <=64; routes<=32 {name,target host:port,url,appId?,enabled?}; teamId; oncallGroupId ocg_; HMAC secret returned once"
+  },
+  {
+   "name": "connectors_get",
+   "scopes": "connectors:read",
+   "required": [
+    "connectorId"
+   ],
+   "constraints": ""
+  },
+  {
+   "name": "connectors_heartbeat",
+   "scopes": "connectors:write",
+   "required": [
+    "connectorId"
+   ],
+   "constraints": "status online|offline|unknown; graceful; routes"
+  },
+  {
+   "name": "connectors_list",
+   "scopes": "connectors:read",
+   "required": [],
+   "constraints": ""
+  },
+  {
+   "name": "connectors_remove",
+   "scopes": "connectors:write",
+   "required": [
+    "connectorId"
+   ],
+   "constraints": ""
+  },
+  {
+   "name": "connectors_rotate_secret",
+   "scopes": "connectors:write",
+   "required": [
+    "connectorId"
+   ],
+   "constraints": "new secret returned once"
+  },
+  {
+   "name": "connectors_update",
+   "scopes": "connectors:write",
+   "required": [
+    "connectorId"
+   ],
+   "constraints": "enabled,name,tunnelId,hostname,routes,oncallGroupId|null,status"
+  },
+  {
+   "name": "devices_list",
+   "scopes": "devices:read",
+   "required": [],
+   "constraints": ""
+  },
+  {
+   "name": "devices_remove",
+   "scopes": "devices:write",
+   "required": [
+    "deviceId"
+   ],
+   "constraints": ""
+  },
+  {
+   "name": "events_list",
+   "scopes": "events:read",
+   "required": [],
+   "constraints": "limit 1..100; webhook deliveries"
+  },
+  {
+   "name": "groups_create",
+   "scopes": "teams:write",
+   "required": [
+    "teamId",
+    "name"
+   ],
+   "constraints": "memberIds/deviceIds <=200"
+  },
+  {
+   "name": "groups_delete",
+   "scopes": "teams:write",
+   "required": [
+    "teamId",
+    "groupId"
+   ],
+   "constraints": ""
+  },
+  {
+   "name": "groups_get",
+   "scopes": "teams:read",
+   "required": [
+    "teamId",
+    "groupId"
+   ],
+   "constraints": ""
+  },
+  {
+   "name": "groups_list",
+   "scopes": "teams:read",
+   "required": [
+    "teamId"
+   ],
+   "constraints": ""
+  },
+  {
+   "name": "groups_update",
+   "scopes": "teams:write",
+   "required": [
+    "teamId",
+    "groupId"
+   ],
+   "constraints": ""
+  },
+  {
+   "name": "inbox_get",
+   "scopes": "inbox:read",
+   "required": [
+    "id"
+   ],
+   "constraints": "id event:\u2026 or notification:\u2026"
+  },
+  {
+   "name": "inbox_list",
+   "scopes": "inbox:read",
+   "required": [],
+   "constraints": "limit 1..50; project|unfiled; unread bool; cursor"
+  },
+  {
+   "name": "inbox_projects",
+   "scopes": "inbox:read",
+   "required": [],
+   "constraints": ""
+  },
+  {
+   "name": "inbox_read",
+   "scopes": "inbox:write",
+   "required": [
+    "id"
+   ],
+   "constraints": ""
+  },
+  {
+   "name": "inbox_read_all",
+   "scopes": "inbox:write",
+   "required": [
+    "readThrough"
+   ],
+   "constraints": "readThrough<=200 from list readThroughToken; project<=100"
+  },
+  {
+   "name": "inbox_unread",
+   "scopes": "inbox:write",
+   "required": [
+    "id"
+   ],
+   "constraints": ""
+  },
+  {
+   "name": "interactions_cancel",
+   "scopes": "interactions:create",
+   "required": [
+    "id"
+   ],
+   "constraints": "only prompts created by this connection"
+  },
+  {
+   "name": "interactions_create",
+   "scopes": "interactions:create+notifications:send",
+   "required": [
+    "title",
+    "prompt",
+    "kind"
+   ],
+   "constraints": "same schema as ask; returns at once"
+  },
+  {
+   "name": "interactions_get",
+   "scopes": "interactions:read",
+   "required": [
+    "id"
+   ],
+   "constraints": "this connection only"
+  },
+  {
+   "name": "interactions_list",
+   "scopes": "interactions:read",
+   "required": [],
+   "constraints": "all sources pending; no agent answer route"
+  },
+  {
+   "name": "interactions_wait",
+   "scopes": "interactions:read",
+   "required": [
+    "id"
+   ],
+   "constraints": "<=25s per call; timedOut:true; does not cancel"
+  },
+  {
+   "name": "mini_apps_block",
+   "scopes": "apps:write",
+   "required": [
+    "packageId",
+    "reason"
+   ],
+   "constraints": "reason<=500"
+  },
+  {
+   "name": "mini_apps_disable",
+   "scopes": "apps:write",
+   "required": [
+    "packageId",
+    "reason"
+   ],
+   "constraints": "reason<=500"
+  },
+  {
+   "name": "mini_apps_export",
+   "scopes": "apps:read",
+   "required": [],
+   "constraints": "metadata only"
+  },
+  {
+   "name": "mini_apps_get",
+   "scopes": "apps:read",
+   "required": [
+    "packageId"
+   ],
+   "constraints": ""
+  },
+  {
+   "name": "mini_apps_list",
+   "scopes": "apps:read",
+   "required": [],
+   "constraints": ""
+  },
+  {
+   "name": "mini_apps_offer",
+   "scopes": "apps:write+notifications:send",
+   "required": [
+    "packageId"
+   ],
+   "constraints": "push to owner devices; never auto-installs; 1 per package per minute"
+  },
+  {
+   "name": "mini_apps_remove",
+   "scopes": "apps:write",
+   "required": [
+    "packageId",
+    "reason"
+   ],
+   "constraints": ""
+  },
+  {
+   "name": "mini_apps_report",
+   "scopes": "apps:write",
+   "required": [
+    "packageId",
+    "reason"
+   ],
+   "constraints": ""
+  },
+  {
+   "name": "mini_apps_review",
+   "scopes": "apps:read",
+   "required": [],
+   "constraints": ""
+  },
+  {
+   "name": "notification_withdraw",
+   "scopes": "notifications:send",
+   "required": [
+    "id"
+   ],
+   "constraints": "anot_\u2026 or notification:anot_\u2026; 502 if no device accepted"
+  },
+  {
+   "name": "notify",
+   "scopes": "notifications:send (+oncall:write with oncall)",
+   "required": [
+    "body"
+   ],
+   "constraints": "body<=8000; title<=80 default \"Notify\"; summary<=500; bodyFormat text|markdown; project<=80; appId app_; url,imageUrl; deviceIds 1..50; group dgrp_; oncall ocg_; idempotencyKey<=200; returns anot_ id"
+  },
+  {
+   "name": "oncall_create",
+   "scopes": "oncall:write",
+   "required": [
+    "teamId",
+    "name",
+    "rotation"
+   ],
+   "constraints": "rotation{memberIds 1..100,period daily|weekly,handoffAt HH:MM,timezone,startsAt?}; escalation<=5 default next@5,group@10"
+  },
+  {
+   "name": "oncall_delete",
+   "scopes": "oncall:write",
+   "required": [
+    "groupId"
+   ],
+   "constraints": ""
+  },
+  {
+   "name": "oncall_get",
+   "scopes": "oncall:read",
+   "required": [
+    "groupId"
+   ],
+   "constraints": ""
+  },
+  {
+   "name": "oncall_list",
+   "scopes": "oncall:read",
+   "required": [
+    "teamId"
+   ],
+   "constraints": ""
+  },
+  {
+   "name": "oncall_me",
+   "scopes": "oncall:read",
+   "required": [],
+   "constraints": ""
+  },
+  {
+   "name": "oncall_override_add",
+   "scopes": "oncall:write",
+   "required": [
+    "groupId",
+    "userId",
+    "startsAt",
+    "endsAt"
+   ],
+   "constraints": "UTC Z datetimes"
+  },
+  {
+   "name": "oncall_override_remove",
+   "scopes": "oncall:write",
+   "required": [
+    "groupId",
+    "overrideId"
+   ],
+   "constraints": ""
+  },
+  {
+   "name": "oncall_update",
+   "scopes": "oncall:write",
+   "required": [
+    "groupId"
+   ],
+   "constraints": ""
+  },
+  {
+   "name": "pages_create",
+   "scopes": "oncall:write",
+   "required": [
+    "groupId",
+    "title"
+   ],
+   "constraints": "title<=120; body<=2000; dedupKey<=200; no monthly cap"
+  },
+  {
+   "name": "pages_get",
+   "scopes": "oncall:read",
+   "required": [
+    "pageId"
+   ],
+   "constraints": "no agent ack/escalate"
+  },
+  {
+   "name": "pages_list",
+   "scopes": "oncall:read",
+   "required": [
+    "teamId"
+   ],
+   "constraints": "status open|all; limit 1..50; cursor"
+  },
+  {
+   "name": "pages_resolve",
+   "scopes": "oncall:write",
+   "required": [
+    "pageId"
+   ],
+   "constraints": "note<=500"
+  },
+  {
+   "name": "services_create",
+   "scopes": "services:write",
+   "required": [
+    "title"
+   ],
+   "constraints": "title<=80; imageUrl|null; url|null; defaultReplyWebhookId whk_|null; webhook URL returned once"
+  },
+  {
+   "name": "services_delete",
+   "scopes": "services:write",
+   "required": [
+    "serviceId"
+   ],
+   "constraints": ""
+  },
+  {
+   "name": "services_get",
+   "scopes": "services:read",
+   "required": [
+    "serviceId"
+   ],
+   "constraints": ""
+  },
+  {
+   "name": "services_list",
+   "scopes": "services:read",
+   "required": [],
+   "constraints": "no URLs"
+  },
+  {
+   "name": "services_rotate",
+   "scopes": "services:write",
+   "required": [
+    "serviceId"
+   ],
+   "constraints": "old URL dies immediately"
+  },
+  {
+   "name": "services_share",
+   "scopes": "services:write",
+   "required": [
+    "serviceId",
+    "familyId"
+   ],
+   "constraints": "familyId|null; creator only"
+  },
+  {
+   "name": "services_update",
+   "scopes": "services:write",
+   "required": [
+    "serviceId"
+   ],
+   "constraints": ""
+  },
+  {
+   "name": "teams_apps",
+   "scopes": "teams:read+apps:read",
+   "required": [
+    "teamId"
+   ],
+   "constraints": ""
+  },
+  {
+   "name": "teams_audit",
+   "scopes": "teams:read",
+   "required": [
+    "teamId"
+   ],
+   "constraints": "admin/owner; limit 1..1000; format json|csv"
+  },
+  {
+   "name": "teams_clear_domain",
+   "scopes": "teams:write",
+   "required": [
+    "teamId"
+   ],
+   "constraints": "owner"
+  },
+  {
+   "name": "teams_create",
+   "scopes": "teams:write",
+   "required": [
+    "name",
+    "kind"
+   ],
+   "constraints": "kind const \"family\"; new teams -> 403"
+  },
+  {
+   "name": "teams_delete",
+   "scopes": "teams:write",
+   "required": [
+    "teamId"
+   ],
+   "constraints": "owner"
+  },
+  {
+   "name": "teams_devices",
+   "scopes": "teams:read",
+   "required": [
+    "teamId"
+   ],
+   "constraints": "admin/owner"
+  },
+  {
+   "name": "teams_get",
+   "scopes": "teams:read",
+   "required": [
+    "teamId"
+   ],
+   "constraints": ""
+  },
+  {
+   "name": "teams_invite",
+   "scopes": "teams:write",
+   "required": [
+    "teamId"
+   ],
+   "constraints": "email|domain; role admin|member default member; 7-day link; human accepts"
+  },
+  {
+   "name": "teams_invites",
+   "scopes": "teams:read",
+   "required": [
+    "teamId"
+   ],
+   "constraints": ""
+  },
+  {
+   "name": "teams_leave",
+   "scopes": "teams:write",
+   "required": [
+    "teamId"
+   ],
+   "constraints": ""
+  },
+  {
+   "name": "teams_list",
+   "scopes": "teams:read",
+   "required": [],
+   "constraints": ""
+  },
+  {
+   "name": "teams_remove_member",
+   "scopes": "teams:write",
+   "required": [
+    "teamId",
+    "memberId"
+   ],
+   "constraints": ""
+  },
+  {
+   "name": "teams_rename",
+   "scopes": "teams:write",
+   "required": [
+    "teamId"
+   ],
+   "constraints": "name; autoJoinVerifiedDomain; retentionDays 7|30|90|365|null"
+  },
+  {
+   "name": "teams_request_domain",
+   "scopes": "teams:write",
+   "required": [
+    "teamId",
+    "domain"
+   ],
+   "constraints": "owner; TXT _notify-verification.<domain>"
+  },
+  {
+   "name": "teams_revoke_invite",
+   "scopes": "teams:write",
+   "required": [
+    "teamId",
+    "inviteId"
+   ],
+   "constraints": ""
+  },
+  {
+   "name": "teams_set_role",
+   "scopes": "teams:write",
+   "required": [
+    "teamId",
+    "memberId",
+    "role"
+   ],
+   "constraints": "role owner|admin|member"
+  },
+  {
+   "name": "teams_verify_domain",
+   "scopes": "teams:write",
+   "required": [
+    "teamId"
+   ],
+   "constraints": "rate-limited"
+  },
+  {
+   "name": "tokens_list",
+   "scopes": "tokens:manage",
+   "required": [],
+   "constraints": "no create route"
+  },
+  {
+   "name": "tokens_revoke",
+   "scopes": "tokens:manage",
+   "required": [
+    "tokenId"
+   ],
+   "constraints": ""
+  },
+  {
+   "name": "webhooks_create",
+   "scopes": "services:write",
+   "required": [
+    "name",
+    "url"
+   ],
+   "constraints": "preset generic|grok|slack; headers<=16; events interaction.answered|expired|canceled (1..3); enabled default true; isDefault default false; secret once"
+  },
+  {
+   "name": "webhooks_delete",
+   "scopes": "services:write",
+   "required": [
+    "webhookId"
+   ],
+   "constraints": ""
+  },
+  {
+   "name": "webhooks_get",
+   "scopes": "services:read",
+   "required": [
+    "webhookId"
+   ],
+   "constraints": ""
+  },
+  {
+   "name": "webhooks_list",
+   "scopes": "services:read",
+   "required": [],
+   "constraints": ""
+  },
+  {
+   "name": "webhooks_rotate_secret",
+   "scopes": "services:write",
+   "required": [
+    "webhookId"
+   ],
+   "constraints": ""
+  },
+  {
+   "name": "webhooks_test",
+   "scopes": "services:write",
+   "required": [
+    "webhookId"
+   ],
+   "constraints": "outbound HTTPS"
+  },
+  {
+   "name": "webhooks_update",
+   "scopes": "services:write",
+   "required": [
+    "webhookId"
+   ],
+   "constraints": ""
+  }
+ ]
+}

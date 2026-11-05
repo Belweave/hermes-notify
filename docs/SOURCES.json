@@ -15,5 +15,24 @@
     "source": "https://notify.belweave.ai/openapi.json",
     "retrieved_at": "2026-11-04 America/New_York",
     "sha256": "0199992597bb7a19c6817df42d2651cfbe79c701348f2f3d1122b21f05b0f0fb"
+  },
+  "notify_tools": {
+    "source": "https://github.com/Belweave/notify-tools",
+    "commit_sha": "390013d3e89c23776a0a6087646a4f7f995a0b38",
+    "release": "0.14.2",
+    "archive_sha256": "36f0b4bc7e5cc42d2463463ab3dc1e042560bbc63673743981bedbb5ab7eee71"
+  },
+  "mcp_evidence": {
+    "endpoint": "https://notify.belweave.ai/mcp",
+    "anonymous_tools_list_status": 401,
+    "live_tools": 99,
+    "prior_documented_tools": 61,
+    "added": 38,
+    "missing": 0,
+    "schema_read_verified": true,
+    "source": "Preetham-supplied authenticated user-notify GetDynamicTools, 2026-11-04 ET; no tool calls",
+    "snapshot": "docs/notes/notify-mcp-live-schemas.json",
+    "snapshot_format": "condensed names, scopes, required parameters and constraints",
+    "sha256": "7d3f32558f6e215e26b428d4f49607ec4c0812cd79b35f952856c62e0a375b10"
   }
 }
