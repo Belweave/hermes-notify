@@ -2,17 +2,44 @@
   "verifiedOn": "2026-11-04 America/New_York",
   "baseCommit": "ed8c6c9aa1196bcf1fa06564961f41f6c7a44be7",
   "productionSourceCommit": "9a650ffdd7b89d5bb9b503f66c0fc2e6c3f816f9",
-  "sourceSha256": {
-    "app/public/index.html": "6ccac76b3689a181bdaa7e23a24e9349b2852638052379501af9d68bdd9693e9",
-    "app/public/styles.css": "6e6b46d3988868f4884883133862fb786c0449ce6e944feaf8264ab3d78e6d03",
-    "app/public/no-script.css": "9168629635d1e014abda6a2d3e29d17bce7ac351936bfe6a14ccc9f4d67defab",
-    "app/public/app.js": "7e676db19b6c6dc175f5a4477b5c443a6082b20cec77d8cf770985bb324a5ad9",
-    "app/public/view.js": "d8f100744f08659bb0c3cb58edcd23f5fd510298e4a916a435fd9b9f5dc51a9e",
-    "app/public/auth.js": "33594cd6a0a79b79e297b955da075f9aa6f82ed8cce94b02ce6410620876c3d0",
-    "worker/src/index.js": "94f8e33a544c0d0232ca97468b1d503775298bd1267d599bca76cb0017deed05",
-    "worker/src/pages.js": "64102af9884c700973d3c319baee64a5dc2aa6791567278406a31cf45542c171",
-    "app/tests/design.spec.js": "527df856fb6b74f31670ee8c3d57f4a9e4b052afc57f9c0339ccfed07393c751"
-  },
+  "sourceSha256": [
+    {
+      "file": "app/public/index.html",
+      "sha256": "6ccac76b3689a181bdaa7e23a24e9349b2852638052379501af9d68bdd9693e9"
+    },
+    {
+      "file": "app/public/styles.css",
+      "sha256": "6e6b46d3988868f4884883133862fb786c0449ce6e944feaf8264ab3d78e6d03"
+    },
+    {
+      "file": "app/public/no-script.css",
+      "sha256": "9168629635d1e014abda6a2d3e29d17bce7ac351936bfe6a14ccc9f4d67defab"
+    },
+    {
+      "file": "app/public/app.js",
+      "sha256": "7e676db19b6c6dc175f5a4477b5c443a6082b20cec77d8cf770985bb324a5ad9"
+    },
+    {
+      "file": "app/public/view.js",
+      "sha256": "d8f100744f08659bb0c3cb58edcd23f5fd510298e4a916a435fd9b9f5dc51a9e"
+    },
+    {
+      "file": "app/public/auth.js",
+      "sha256": "33594cd6a0a79b79e297b955da075f9aa6f82ed8cce94b02ce6410620876c3d0"
+    },
+    {
+      "file": "worker/src/index.js",
+      "sha256": "94f8e33a544c0d0232ca97468b1d503775298bd1267d599bca76cb0017deed05"
+    },
+    {
+      "file": "worker/src/pages.js",
+      "sha256": "64102af9884c700973d3c319baee64a5dc2aa6791567278406a31cf45542c171"
+    },
+    {
+      "file": "app/tests/design.spec.js",
+      "sha256": "527df856fb6b74f31670ee8c3d57f4a9e4b052afc57f9c0339ccfed07393c751"
+    }
+  ],
   "tests": [
     {
       "suite": "Python",
