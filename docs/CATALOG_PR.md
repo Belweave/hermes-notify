@@ -68,7 +68,7 @@ Worker publication uses durable operation IDs and conditional revisions. Expired
 ## Validation and compatibility
 
 - Tested Hermes source: `ed1afb082eb3e46cf2edae9d8f68fb67b09ee4df`. A minimum released SemVer is not yet verified, so no invented `requires_hermes` is declared. The draft lists only tested `macos` and records this limitation in `known_issues`.
-- Python: **124 tests**. Worker: **22 tests**. App: **42 browser scenarios**. Desktop SDK: **9 tests**. Desktop backend: **27 tests**. Total: **224**.
+- Python: **126 tests**. Worker: **23 tests**. App: **42 browser scenarios**. Desktop SDK: **9 tests**. Desktop backend: **28 tests**. Total: **228**.
 - The actual Hermes loader/registry and approval gate, plus local workerd, pass approve/deny/timeout rehearsals. Only approval executes the synthetic action. All paths finish the mock Live Activity. Notify's CLI is absent from the rehearsal path.
 - Native entrypoint skill registration, public session accessor, Unicode/digest agreement and `OPERATION_RESPONSE_EXPIRED` recovery are covered.
 - The official catalog entry validator accepts the structure. The pinned commit and all three screenshot URLs resolve on GitHub.

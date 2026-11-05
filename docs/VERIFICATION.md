@@ -6,11 +6,11 @@ The complete release workflow is implemented and rehearsed locally with syntheti
 
 | Check | Result | What it establishes |
 | --- | --- | --- |
-| Python suite | 124 passed | Native approval safety, registered tools, profile/session binding, durable intents, publication recovery, progress/fallback, replies, bounded storage and unload. |
-| Worker suite | 22 passed | Actual workerd and SQLite, official SDK verification with synthetic keys, conflicts/replay, authentication, signature/freshness checks, reply/event deduplication, storage failure/restart and production assets. |
+| Python suite | 126 passed | Native approval safety, registered tools, profile/session binding, durable intents, publication recovery, progress/fallback, replies, bounded storage and unload. |
+| Worker suite | 23 passed | Actual workerd and SQLite, official SDK verification with synthetic keys, conflicts/replay, authentication, signature/freshness checks, reply/event deduplication, storage failure/restart and production assets. |
 | App browser suite | 42 passed | Chromium scenarios for phone/desktop layouts, safe rendering, replies, retries, stale runs, expiry, offline/visibility handling and refresh pacing. |
 | Desktop SDK suite | 9 passed | Actual pinned SDK exports/import rules, registration, profile/connection races, cleanup, link policy and official font integrity. |
-| Desktop backend suite | 27 passed | Actual FastAPI route and public Hermes storage contract, profile selection, read-only behavior, file bounds, malformed snapshots, symlinks and safe errors. |
+| Desktop backend suite | 28 passed | Actual FastAPI route and public Hermes storage contract, profile selection, read-only behavior, file bounds, malformed snapshots, symlinks and safe errors. |
 | Skill validation | Passed | Packaged release skill structure; native entrypoint explicitly registers it. |
 | Full package admission | All 16 checks passed | Manifest, dependency declaration, isolated registration, declared capabilities, security scan, core-override check and Desktop surface. One development-harness import warning, described below. |
 | End-to-end local release | Approve, deny and timeout passed | Python publisher to real local Worker, synthetic microAuth and reply, real Hermes approval, conditional action execution, final workspace and activity. |
@@ -77,3 +77,9 @@ The validator reports `in_process` because native approval transports hold a liv
 - The under-90-second recording, clean production install, public repository, catalog PR and entry submission. These remain later authorized actions. The [85-second runbook](DEMO.md) is ready locally.
 
 The historical one-prompt helper `scripts/spike.py --live` still requires explicit authorization for any new send and an injected token. It is not called by any build or test above. The complete phone rehearsal sends more than that single prompt and needs its own authorization.
+
+## Five review regressions
+
+The five reported correctness fixes were already present in published candidate `8c73716`. This verification pass strengthens their tests and checks each fix independently: remove only that fix in an isolated source export, observe the reported failure, then run the same regression against the fixed code. All ten cases fail with the corresponding fix removed and pass with it present. The [submission checklist](SUBMISSION-CHECKLIST.md#five-correctness-fixes-and-regression-proof) records each cause, fix, test and observed failure; [REGRESSION-EVIDENCE.json](REGRESSION-EVIDENCE.json) retains exact reintroduction patches, source/test hashes, commands and log hashes.
+
+All suites were rerun for this pass: Python 126, Worker 23, App 42, Desktop 9 and backend 28, totaling 228 passes. Worker reply tests feed real workerd bytes into the production Python collector for seventy maximum-length ASCII replies and seventy maximum-length Unicode replies. The unload test persists through the public finish tool before closing the real runtime; activity recovery is checked both with and without a restart. The Desktop test reads the actual runtime-generated global diagnostic through FastAPI. Production code remains byte-identical to the published pin.

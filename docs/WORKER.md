@@ -9,6 +9,7 @@ Source is in [`worker/src`](../worker/src), the official browser adapter is [`ap
 Run these from the repository root:
 
 ```sh
+uv sync --only-group dev
 node worker/scripts/isolated.mjs ci
 node worker/scripts/isolated.mjs check
 node worker/scripts/isolated.mjs test
@@ -23,7 +24,7 @@ The tests generate an ephemeral P-256 key pair and use synthetic publisher/webho
 
 `build` copies the App-owned `app/public/` to `worker/dist/public/`, adds the official browser SDK and licenses, and bundles the Worker into `worker/dist/worker.mjs`. It rejects hidden files and symlinks in public assets. It does not invoke Wrangler. The App files must exist before building. Build output and dependencies are ignored inside `worker/`.
 
-Validated locally: **22 passing tests**, syntax checks, all **135 vendored file hashes**, and the complete production bundle. The test suite itself builds and serves the current App through Miniflare's real static-assets binding. The bundle is about 78 KiB before compression; this is a local build measurement, not a deployed startup measurement.
+Validated locally: **23 passing tests**, syntax checks, all **135 vendored file hashes**, and the complete production bundle. The reply-page tests also use the root `.venv/bin/python` created by `uv sync`: a loopback adapter feeds real workerd responses to the production Python collector, including its 128 KiB limit, attribution and acknowledgments. The test suite itself builds and serves the current App through Miniflare's real static-assets binding. The bundle is about 78 KiB before compression; this is a local build measurement, not a deployed startup measurement.
 
 ## Operator configuration
 

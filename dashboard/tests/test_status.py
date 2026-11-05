@@ -92,6 +92,29 @@ def test_global_delivery_error_preserves_all_workspace_status(api):
     assert client.get("/api/plugins/hermes-notify/status").status_code == 503
 
 
+def test_runtime_global_diagnostic_preserves_desktop_status(api):
+    from hermes_cli.plugins_state import PluginState
+    from hermes_notify.runtime import Runtime, Session
+
+    _, client, _ = api
+    runtime = Runtime(PluginState("hermes-notify").data_dir, enabled=True, token="dummy")
+    session = Session("synthetic-route", "synthetic-session")
+    try:
+        result = runtime.call("notify_release", {"action": "begin", "project": "demo", "version": "1"}, session)
+        assert result["ok"] and runtime.queue.drain(5)
+        before = client.get("/api/plugins/hermes-notify/status")
+        assert before.status_code == 200
+        # The producer deliberately uses an empty project for an invalid call.
+        invalid = runtime.call("notify_release", {"action": "begin", "version": "2"}, session)
+        assert not invalid["ok"]
+        after = client.get("/api/plugins/hermes-notify/status")
+        assert after.status_code == 200
+        assert after.json()["runs"] == before.json()["runs"]
+        assert any(row["project"] == "" and row["state"] == "failed" for row in after.json()["deliveries"])
+    finally:
+        runtime.close()
+
+
 def test_profile_lookup_is_per_request_and_query_cannot_choose_path(api, monkeypatch, tmp_path):
     _, client, home = api
     write(home, sample())

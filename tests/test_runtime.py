@@ -56,11 +56,15 @@ def restart(runtime, url):
                    settings=runtime.settings, test_url=url + "/api/agent", test_worker_url=url)
 
 
-def test_superseded_publication_retry_cannot_replace_current_workspace(pocket):
+@pytest.mark.parametrize("publication_completed", [False, True])
+def test_superseded_publication_retry_cannot_replace_current_workspace(pocket, publication_completed):
     rt, mock, _ = pocket
     first = begin(rt, version="1.0")
-    mock.fail("POST", "/api/agent/apps", status=403)
-    assert not call(rt, "publish_app", project="demo")["ok"]
+    if publication_completed:
+        publish(rt)
+    else:
+        mock.fail("POST", "/api/agent/apps", status=403)
+        assert not call(rt, "publish_app", project="demo")["ok"]
     finish(rt)
     second = begin(rt, version="2.0")
     publish(rt)
@@ -80,8 +84,15 @@ def test_owner_can_resume_terminal_delivery_after_unload(pocket, resume_tool):
     begin(rt)
     publish(rt)
     assert rt.queue.drain(6)
-    rt.queue.close()  # Model unload after the terminal state commits, before delivery.
-    finish(rt)
+    # Hold the runtime lock so the real worker cannot deliver the queued finish.
+    # Persist through the public tool first, then invoke the actual unload path.
+    with rt.lock:
+        workspace = call(rt, "release", action="status", project="demo")["workspace"]
+        done = call(rt, "release", action="finish", project="demo",
+                    expected_revision=workspace["revision"], result="succeeded",
+                    result_summary="Release action returned successfully")
+        assert done["ok"] and done["workspace"]["status"] == "shipped"
+        rt.close()
     assert mock.workspaces["demo"]["status"] == "preparing"
     assert next(iter(mock.activities.values()))["status"] != "ended"
     resumed = restart(rt, url)
@@ -95,24 +106,37 @@ def test_owner_can_resume_terminal_delivery_after_unload(pocket, resume_tool):
         assert mock.workspaces["demo"]["status"] == "shipped"
         assert next(iter(mock.activities.values()))["status"] == "ended"
         assert mock.count("POST", "/api/agent/activities") == 1
+        requests_after_recovery = len(mock.requests)
+        assert call(resumed, resume_tool, **args)["resumed"]
+        assert resumed.queue.drain(6)
+        assert len(mock.requests) == requests_after_recovery
     finally:
         resumed.close()
 
 
-def test_completion_recovers_and_ends_a_start_with_a_lost_response(pocket):
-    rt, mock, _ = pocket
+@pytest.mark.parametrize("restart_before_finish", [False, True])
+def test_completion_recovers_and_ends_a_start_with_a_lost_response(pocket, restart_before_finish):
+    rt, mock, url = pocket
     rt.settings["progress_enabled"] = True
     mock.fail("POST", "/api/agent/activities", status=503, after=True)
     begin(rt)
     assert len(mock.activities) == 1
     # Authoritative activity reads need not repeat create-time delivery counters.
     next(iter(mock.activities.values())).pop("accepted")
-    finish(rt)
-    activity = next(iter(mock.activities.values()))
-    assert activity["status"] == "ended"
-    assert mock.count("POST", "/api/agent/activities") == 1
-    assert mock.count("GET", "/api/agent/activities/" + activity["key"]) == 1
-    assert mock.count("POST", "/api/agent/activities/" + activity["id"] + "/end") == 1
+    active = restart(rt, url) if restart_before_finish else rt
+    try:
+        assert finish(active)["ok"]
+        activity = next(iter(mock.activities.values()))
+        assert activity["status"] == "ended"
+        assert mock.count("POST", "/api/agent/activities") == 1
+        read = ("GET", "/api/agent/activities/" + activity["key"])
+        end = ("POST", "/api/agent/activities/" + activity["id"] + "/end")
+        assert mock.count(*read) == mock.count(*end) == 1
+        requests = [(method, path) for method, path, *_ in mock.requests]
+        assert requests.index(read) < requests.index(end)
+    finally:
+        if restart_before_finish:
+            active.close()
 
 
 def test_release_lifecycle_snapshot_and_revisions(pocket):

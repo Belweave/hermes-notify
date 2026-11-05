@@ -1,0 +1,217 @@
+{
+  "baseline": "db1fdf025baee01353d41d2c3ffa382451b63be0",
+  "publishedPluginPin": "8c73716f9adbf6b3e26ec77651cf45508bee3e09",
+  "method": "Apply one narrow reintroduction patch at a time to an isolated archive of the baseline, overlay the listed regression tests, and run the recorded command. These reconstruct the reported behavior; they are not historical commits or changes to the working branch.",
+  "productionCodeUnchanged": true,
+  "before": [
+    {
+      "bug": 1,
+      "baseline": "db1fdf025baee01353d41d2c3ffa382451b63be0",
+      "command": [
+        "$REPO/.venv/bin/python",
+        "-m",
+        "pytest",
+        "tests/test_runtime.py",
+        "-k",
+        "superseded_publication",
+        "--tb=short"
+      ],
+      "exitCode": 1,
+      "changes": [
+        {
+          "path": "hermes_notify/publisher.py",
+          "fixedSha256": "063f43d2d9ed8d8a3831756ff7d7df158805e63efe398da3b827fcd0914bc86e",
+          "beforeSha256": "1bacc44b01ea756bef0431b570f3ec36cc5bd5186232370a17a1da0d6f4eb4c4",
+          "reintroductionPatch": "--- a/hermes_notify/publisher.py\n+++ b/hermes_notify/publisher.py\n@@ -10,8 +10,6 @@\n     def _sync_workspace(self, run):\n         project = run[\"workspace\"][\"project\"]\n         mapping = self.journal.get(\"project\", project, {})\n-        if mapping.get(\"runId\") != run[\"workspace\"][\"runId\"]:\n-            raise NotifyError(\"A newer release owns this project's workspace\", status=409)\n         # A durable, exact pending write is replayed before any newer content.\n         desired = dict(run[\"workspace\"])\n         content_hash = digest({k: v for k, v in desired.items() if k != \"revision\"})\n@@ -52,8 +50,6 @@\n         w = run[\"workspace\"]\n         project, rid = w[\"project\"], w[\"runId\"]\n         mapping = self.journal.get(\"project\", project)\n-        if mapping.get(\"runId\") != rid:\n-            raise NotifyError(\"A newer release owns this project's workspace\", status=409)\n         existing_url = args.get(\"url\")\n         hosted = existing_url is None\n         if hosted:\n"
+        }
+      ],
+      "log": ".local/regression-proof/before-1.log",
+      "expectedSymptom": "assert (not True)",
+      "symptomObserved": true,
+      "logSha256": "4344e22590d2902d54d4332b7348062cf12a6dfea97de32132336111e0bb223f",
+      "testFiles": {
+        "tests/test_runtime.py": "9c4364ba25d4288ae95fff910c9102a6894f84d87112fd3bbd5b0f1a5ee25dc4"
+      },
+      "regressionCasesFailed": 2
+    },
+    {
+      "bug": 2,
+      "baseline": "db1fdf025baee01353d41d2c3ffa382451b63be0",
+      "command": [
+        "$REPO/.venv/bin/python",
+        "-m",
+        "pytest",
+        "tests/test_runtime.py",
+        "-k",
+        "owner_can_resume_terminal",
+        "--tb=short"
+      ],
+      "exitCode": 1,
+      "changes": [
+        {
+          "path": "hermes_notify/runtime.py",
+          "fixedSha256": "30ac982af66c7b5a1fd65e7a8b169b50154f382bab2970139442ce08b73af828",
+          "beforeSha256": "c0a4196cef189dd48dc22cf556ceb713fc58e635c305378fecb868a56a884f1b",
+          "reintroductionPatch": "--- a/hermes_notify/runtime.py\n+++ b/hermes_notify/runtime.py\n@@ -146,9 +146,6 @@\n             if existing:\n                 if not session.matches(existing) or existing[\"workspace\"][\"project\"] != project or existing[\"workspace\"][\"version\"] != version:\n                     raise NotifyError(\"Run ID conflicts with another release\", status=409)\n-                # Resume durable delivery, including an end discarded during unload.\n-                # Progress only publishes data when this run still owns the project.\n-                self.queue.submit((\"progress\", rid), None)\n                 return {\"workspace\": existing[\"workspace\"], \"resumed\": True}\n             mapping = self.journal.get(\"project\", project, {})\n             previous = self.journal.get(\"run\", mapping.get(\"runId\", \"\"))\n"
+        },
+        {
+          "path": "hermes_notify/publisher.py",
+          "fixedSha256": "063f43d2d9ed8d8a3831756ff7d7df158805e63efe398da3b827fcd0914bc86e",
+          "beforeSha256": "5cb2a1bcf2027328152db01f3c5e1f1b504c3a3f7e9c2e9d1da64ebe33f58d55",
+          "reintroductionPatch": "--- a/hermes_notify/publisher.py\n+++ b/hermes_notify/publisher.py\n@@ -74,7 +74,6 @@\n                          \"hosted\": hosted, \"phase\": \"prepared\", \"workspace\": w}\n             self.journal.put(\"publication\", operation_id, operation)\n         if operation[\"phase\"] == \"announced\":\n-            self.queue.submit((\"progress\", rid), None)\n             return {\"publication\": self._publication_result(operation), \"workspace\": run[\"workspace\"], \"resumed\": True}\n         if hosted:\n             self.worker.health()\n"
+        }
+      ],
+      "log": ".local/regression-proof/before-2.log",
+      "expectedSymptom": "'preparing' == 'shipped'",
+      "symptomObserved": true,
+      "logSha256": "2c7bbb429479ae860457b611d64a76df0f19f624fbb2f0fb189d84506517f9f5",
+      "testFiles": {
+        "tests/test_runtime.py": "9c4364ba25d4288ae95fff910c9102a6894f84d87112fd3bbd5b0f1a5ee25dc4"
+      },
+      "regressionCasesFailed": 2
+    },
+    {
+      "bug": 3,
+      "baseline": "db1fdf025baee01353d41d2c3ffa382451b63be0",
+      "command": [
+        "$REPO/.venv/bin/python",
+        "-m",
+        "pytest",
+        "tests/test_runtime.py",
+        "-k",
+        "completion_recovers_and_ends",
+        "--tb=short"
+      ],
+      "exitCode": 1,
+      "changes": [
+        {
+          "path": "hermes_notify/progress.py",
+          "fixedSha256": "931f49780672c0460a22132483c62026f38a0ece14a12896c3fcd5ea30d8f80a",
+          "beforeSha256": "fe43e0387affe4f726ddd57037e4c531578fdd15c135e1faf39b4b3d7f92c6ec",
+          "reintroductionPatch": "--- a/hermes_notify/progress.py\n+++ b/hermes_notify/progress.py\n@@ -55,7 +55,7 @@\n                 self._fallback_progress(run, progress, signature)\n                 return\n             if not progress.get(\"activityId\"):\n-                if terminal and not progress.get(\"startAttempted\"):\n+                if terminal:\n                     self._fallback_progress(run, progress, signature)\n                     return\n                 body = {\"key\": progress[\"key\"], \"title\": notify_clip(w[\"name\"], 80), \"status\": props[\"status\"],\n@@ -124,11 +124,7 @@\n             self.journal.put(\"progress\", rid, progress)\n             delivery = self.delivery_state(result)\n             self._delivery(project, delivery, \"Progress receipt recorded; phone display is unconfirmed\")\n-            if terminal and latest_signature != signature:\n-                # A recovered start must be ended even when its GET response has no\n-                # delivery counters. Never leave an unknown-start activity open.\n-                self._deliver_progress(run)\n-            elif activity.get(\"status\") == \"failed\" or (delivery == \"not_accepted\" and not result.get(\"queued\", 0)):\n+            if activity.get(\"status\") == \"failed\" or (delivery == \"not_accepted\" and not result.get(\"queued\", 0)):\n                 self._fallback_progress(run, progress, latest_signature)\n             elif latest_signature != signature:\n                 self._deliver_progress(run)\n"
+        }
+      ],
+      "log": ".local/regression-proof/before-3.log",
+      "expectedSymptom": "'starting' == 'ended'",
+      "symptomObserved": true,
+      "logSha256": "0af54b91dd0f2ba01f5389109190a9db0cbdb2a1efbba9c2651424c3dca51c06",
+      "testFiles": {
+        "tests/test_runtime.py": "9c4364ba25d4288ae95fff910c9102a6894f84d87112fd3bbd5b0f1a5ee25dc4"
+      },
+      "regressionCasesFailed": 2
+    },
+    {
+      "bug": 4,
+      "baseline": "db1fdf025baee01353d41d2c3ffa382451b63be0",
+      "command": [
+        "/Users/preetham/.local/bin/node",
+        "worker/scripts/isolated.mjs",
+        "test"
+      ],
+      "exitCode": 1,
+      "changes": [
+        {
+          "path": "worker/src/store.js",
+          "fixedSha256": "7fd07a354f6a75d0a2a5e2c97e97bf618f2c21be874b28616a30199ae57339ee",
+          "beforeSha256": "974f0272d14dee6e8416bdd9f9bccc51658c11f6c1d41a0fb8cda3a3cdd57919",
+          "reintroductionPatch": "--- a/worker/src/store.js\n+++ b/worker/src/store.js\n@@ -124,18 +124,8 @@\n   }\n   listReplies(project, after) {\n     this.requireProject(project);\n-    const rows = this.rows(`SELECT id,cursor,run_id AS runId,text,created AS createdAt FROM replies\n+    const replies = this.rows(`SELECT id,cursor,run_id AS runId,text,created AS createdAt FROM replies\n       WHERE project=? AND acked IS NULL AND cursor>? ORDER BY cursor LIMIT ?`, project, after, LIMITS.page);\n-    const replies = [];\n-    // Leave room for the envelope and largest safe integer cursor. The Python\n-    // client caps responses at 128 KiB; valid long replies must still paginate.\n-    let bytes = 64;\n-    for (const row of rows) {\n-      const size = encoder.encode(JSON.stringify(row)).byteLength + 1;\n-      if (bytes + size > LIMITS.replyPageBytes) break;\n-      replies.push(row);\n-      bytes += size;\n-    }\n     return { replies, cursor: replies.at(-1)?.cursor ?? after };\n   }\n   ackReplies(project, ids, now) {\n"
+        }
+      ],
+      "log": ".local/regression-proof/before-4.log",
+      "expectedSymptom": "API response exceeded size limit",
+      "symptomObserved": true,
+      "logSha256": "f3bf4dba4d4bfdde12336bd45c5909a09343bcb6a9a7c3257a0de786c5e7129b",
+      "testFiles": {
+        "worker/test/worker.test.mjs": "329459dfef0b60917e79531815a99a7fa46532ef4aceee9657554268fa5aa711",
+        "worker/test/collect_replies.py": "18b5fe8388eb3462af0c662192c89962567d91dbaf244551db46215c42169fbe"
+      },
+      "regressionCasesFailed": 2
+    },
+    {
+      "bug": 5,
+      "baseline": "db1fdf025baee01353d41d2c3ffa382451b63be0",
+      "command": [
+        "$REPO/desktop/tests/.venv/bin/python",
+        "-m",
+        "pytest",
+        "-q",
+        "dashboard/tests/test_status.py",
+        "-k",
+        "global_delivery or runtime_global_diagnostic",
+        "--tb=short"
+      ],
+      "exitCode": 1,
+      "changes": [
+        {
+          "path": "dashboard/plugin_api.py",
+          "fixedSha256": "6e48db7b1c0e1b83192137ca7cdcbd3e32761a5d28e7c3f39476e43552059bee",
+          "beforeSha256": "46791ed343fca76368e200dfbf2806be7e7add027fb0ac69fadd3fb47280b5f2",
+          "reintroductionPatch": "--- a/dashboard/plugin_api.py\n+++ b/dashboard/plugin_api.py\n@@ -122,7 +122,7 @@\n         \"runs\": _rows(row[\"runs\"], MAX_RUNS, _workspace),\n         \"pending\": _rows(row[\"pending\"], MAX_PENDING, _decision),\n         \"deliveries\": _rows(row[\"deliveries\"], MAX_DELIVERIES, lambda delivery: {\n-            \"project\": \"\" if delivery[\"project\"] == \"\" else _project(delivery[\"project\"]),\n+            \"project\": _project(delivery[\"project\"]),\n             \"state\": _text(delivery[\"state\"], 80),\n             \"message\": _text(delivery[\"message\"], 500),\n         }),\n"
+        }
+      ],
+      "log": ".local/regression-proof/before-5.log",
+      "expectedSymptom": "503 == 200",
+      "symptomObserved": true,
+      "logSha256": "cc2a81bf02afa438434815dc0030bd16b3e11551da37c5c587f0fb2f4654ed23",
+      "testFiles": {
+        "dashboard/tests/test_status.py": "1ca5ced3f78fd020e5c15e58e643a511162e1ecc8c88f9100ad87fb33d7fbe9f"
+      },
+      "regressionCasesFailed": 2
+    }
+  ],
+  "after": {
+    "python": {
+      "passed": 126,
+      "exitCode": 0,
+      "log": ".local/regression-proof/full/python.log",
+      "logSha256": "b5dc0c65197fc6fd5c45b8df2f34d296fa507a071cf2b645da07f6d05636801f"
+    },
+    "worker": {
+      "passed": 23,
+      "exitCode": 0,
+      "log": ".local/regression-proof/full/worker.log",
+      "logSha256": "208fe5c60a6afc1c7585cffb0fe2ff7ee5a6b62d00ece092080913c62986a802"
+    },
+    "app": {
+      "passed": 42,
+      "exitCode": 0,
+      "log": ".local/regression-proof/full/app.log",
+      "logSha256": "14dda302633a10e7b9263ade4ae3e067e527b303c22b1bad712c0d7eb1ca567c"
+    },
+    "desktop": {
+      "passed": 9,
+      "exitCode": 0,
+      "log": ".local/regression-proof/full/desktop.log",
+      "logSha256": "c5fd0b64acd9538c9ecc5e0534e6927a8a36be03f35671b18254d09065018415"
+    },
+    "backend": {
+      "passed": 28,
+      "exitCode": 0,
+      "log": ".local/regression-proof/full/backend.log",
+      "logSha256": "c4f0c73d20c695143a579ea45ee39b728561e11c3e6779e8e3fc56bee007e5f0"
+    },
+    "totalPassed": 228
+  },
+  "beforeCasesFailed": 10,
+  "afterRegressionCasesPassed": 10,
+  "rehearsals": {
+    "approve": {
+      "exitCode": 0,
+      "summary": ".local/regression-proof/full/rehearsal-approve/summary.json",
+      "summarySha256": "b87d72576b54aad768f25f249692360dd3a7c12c239f7ff280a0bfa69dd8b20b",
+      "actionReceiptExists": true
+    },
+    "deny": {
+      "exitCode": 0,
+      "summary": ".local/regression-proof/full/rehearsal-deny/summary.json",
+      "summarySha256": "14dc059ca8226837cfe5378e3234c8458e3a6cb2658d68d8b10fd926b7cb4996",
+      "actionReceiptExists": false
+    },
+    "timeout": {
+      "exitCode": 0,
+      "summary": ".local/regression-proof/full/rehearsal-timeout/summary.json",
+      "summarySha256": "19bbc29200a334375678d13f6f7d68a8963e26c74ec2690f4c92709987549d42",
+      "actionReceiptExists": false
+    }
+  }
+}

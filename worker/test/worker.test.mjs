@@ -6,6 +6,8 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { createHmac, webcrypto } from 'node:crypto';
+import { createServer } from 'node:http';
+import { spawn } from 'node:child_process';
 import { LIMITS, RETENTION } from '../src/store.js';
 
 const ORIGIN = 'https://pocket.example.test';
@@ -292,35 +294,74 @@ test('replies require browser origin and run; retries deduplicate before and aft
   assert.deepEqual((await (await fetch(`/api/projects/${w.project}/replies`, { headers })).json()).replies, []);
 });
 
-test('long Unicode reply pages fit the publisher response cap and advance without loss', async () => {
+for (const [label, text] of [['ASCII', 'x'.repeat(2000)], ['Unicode', '🧪'.repeat(2000)]]) {
+test(`long ${label} reply pages pass the Python collector without loss`, async () => {
   const w = await create();
   const session = await login(w);
   const expected = [];
   for (let i = 0; i < 70; i++) {
-    const body = { id: unique(), runId: w.runId, text: '🧪'.repeat(2000) };
+    const body = { id: unique(), runId: w.runId, text };
     expected.push(body.id);
     await status(await fetch(`/api/projects/${w.project}/replies`, { method: 'POST',
       headers: browserHeaders(session), body: JSON.stringify(body) }), 200);
   }
-  const received = [];
+  // A loopback adapter maps the Python test credential to this synthetic Worker.
+  // Exact Worker response bytes reach JsonClient's real 128 KiB read boundary.
+  const pages = [];
+  const server = createServer(async (request, response) => {
+    try {
+      assert.equal(request.headers.authorization, 'Bearer dummy');
+      const chunks = [];
+      for await (const chunk of request) chunks.push(chunk);
+      const body = Buffer.concat(chunks);
+      const result = await fetch(request.url, { method: request.method, headers,
+        ...(body.length ? { body } : {}) });
+      const raw = Buffer.from(await result.arrayBuffer());
+      if (request.method === 'GET' && request.url.includes('/replies?')) {
+        pages.push({ bytes: raw.length, ...JSON.parse(raw) });
+      }
+      response.writeHead(result.status, { 'content-type': 'application/json' });
+      response.end(raw);
+    } catch {
+      response.writeHead(500); response.end();
+    }
+  });
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  try {
+    const child = spawn(resolve('../.venv/bin/python'), ['test/collect_replies.py',
+      `http://127.0.0.1:${server.address().port}`], { stdio: ['pipe', 'pipe', 'pipe'],
+      env: { ...process.env, PYTHONDONTWRITEBYTECODE: '1' } });
+    let stdout = '', stderr = '';
+    child.stdout.on('data', chunk => { stdout += chunk; });
+    child.stderr.on('data', chunk => { stderr += chunk; });
+    const timeout = setTimeout(() => child.kill(), 20_000);
+    try {
+      const exited = new Promise((resolve, reject) => {
+        child.on('error', reject); child.on('close', resolve);
+      });
+      child.stdin.end(JSON.stringify({ workspace: w, ids: expected, text }));
+      assert.equal(await exited, 0, stderr);
+    } finally {
+      clearTimeout(timeout);
+    }
+    assert.deepEqual(JSON.parse(stdout), { received: 70, attributed: true, acknowledged: true });
+  } finally {
+    await new Promise(resolve => server.close(resolve));
+  }
   let cursor = 0;
-  while (received.length < expected.length) {
-    const response = await status(await fetch(`/api/projects/${w.project}/replies?after=${cursor}`, { headers }), 200);
-    const raw = await response.text();
-    assert.ok(Buffer.byteLength(raw) <= LIMITS.replyPageBytes);
-    assert.ok(Buffer.byteLength(raw) < 128 * 1024);
-    const page = JSON.parse(raw);
-    assert.ok(page.replies.length > 0 && page.replies.length < expected.length);
+  const received = [];
+  for (const page of pages) {
+    assert.ok(page.bytes <= LIMITS.replyPageBytes && page.bytes < 128 * 1024);
+    if (!page.replies.length) continue;
     assert.equal(page.cursor, page.replies.at(-1).cursor);
     assert.ok(page.cursor > cursor);
     cursor = page.cursor;
     received.push(...page.replies.map(row => row.id));
-    await status(await fetch(`/api/projects/${w.project}/replies/ack`, { method: 'POST', headers,
-      body: JSON.stringify({ ids: page.replies.map(row => row.id) }) }), 200);
   }
   assert.deepEqual(received, expected);
-  assert.equal((await (await fetch(`/api/projects/${w.project}/replies?after=${cursor}`, { headers })).json()).replies.length, 0);
+  assert.equal((await (await fetch(`/api/projects/${w.project}/replies?after=0`, { headers })).json()).replies.length, 0);
 });
+}
 
 test('reply pages and capacities are bounded without losing pending rows', async () => {
   const w = await create();

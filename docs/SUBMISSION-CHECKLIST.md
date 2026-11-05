@@ -95,6 +95,22 @@ Source URLs, retrieval time and SHA-256 hashes are in [SUBMISSION-SOURCES.json](
 - **T5 PASS**: Screenshots/logs are provided, with synthetic App captures clearly distinguished from live phone evidence. Evidence: `docs/CATALOG_PR.md:81`.
 - **T6 PASS**: MIT authorship license and SDK/font third-party licenses are preserved. Evidence: `LICENSE:1`.
 
+## Five correctness fixes and regression proof
+
+The November 4 integration review found the following bugs. Their production fixes landed in `b95b349` and are included in the published catalog pin `8c73716`; this pass builds on Chief Engineer's `db1fdf0`. Tests and evidence were strengthened without changing production code or the pin. Published commits were not rewritten.
+
+For each row, a separate clean export of `db1fdf0` received the updated regression tests and a narrow patch removing only that fix. These are reconstructed pre-fix behaviors, not historical commits. Each before-run exited 1 for the reported assertion; the fixed code passed all ten cases and the complete suite. [REGRESSION-EVIDENCE.json](REGRESSION-EVIDENCE.json) records the exact patches, baseline, code/test hashes, commands and complete-log hashes. The isolated before/after work never modified the main checkout's runtime.
+
+| Finding | Fix and regression | Before the fix | With the fix |
+| --- | --- | --- | --- |
+| **B1 FIXED** | Reject a historical publication before resuming any side effect, and verify current run ownership before workspace sync. Source: `hermes_notify/publisher.py:55`; regression: `tests/test_runtime.py:60`. | Both incomplete and completed historical retries were accepted; the interrupted publication could overwrite the newer workspace. Two cases failed. | Both cases pass: HTTP 409, zero added requests, and the newer local/remote run remains current. |
+| **B2 FIXED** | Re-enqueue durable progress on both owning-session begin and completed-publication resume. Source: `hermes_notify/runtime.py:149`; regression: `tests/test_runtime.py:81`. | After finish persisted and the real runtime unloaded, the Worker stayed `preparing` instead of `shipped`. Both resume-path cases failed. | Both paths ship the saved state, end the original activity, and make no additional requests on a second resume. |
+| **B3 FIXED** | Recover an attempted activity start by its original key before deciding whether a terminal run needs an end; missing delivery counters cannot bypass that end. Source: `hermes_notify/progress.py:58`; regression: `tests/test_runtime.py:118`. | The activity stayed `starting` instead of `ended`, with and without a restart. Two cases failed. | Both pass: one start, one key lookup before one end, with no duplicate activity. |
+| **B4 FIXED** | Cap UTF-8 reply pages at 96 KiB, reserving envelope space below Python's 128 KiB response limit. Source: `worker/src/store.js:125`; regression: `worker/test/worker.test.mjs:298`. | Real Python collection returned `API response exceeded size limit` for both 70-row ASCII and Unicode cases. Two cases failed. | Both pass through workerd and the actual Python collector: every reply is attributed, returned once and acknowledged; pages advance without loss. |
+| **B5 FIXED** | Accept an empty project only for global delivery diagnostics; retain strict workspace and nonempty-project validation. Source: `dashboard/plugin_api.py:125`; regression: `dashboard/tests/test_status.py:95`. | Both a synthetic global record and an actual runtime error changed FastAPI status to 503. Two cases failed. | Both return 200 and preserve all runs; an invalid nonempty delivery project still returns 503. |
+
+Regression commands and full-suite commands are recorded in the evidence JSON and [verification guide](VERIFICATION.md). Worker tests require the root Python environment as documented in [WORKER.md](WORKER.md#local-commands).
+
 ## Published candidate
 
 - **P1 DONE**: `8c73716f9adbf6b3e26ec77651cf45508bee3e09` is on public `main` at https://github.com/Belweave/hermes-notify. An anonymous clone checks it out, `gh api repos/Belweave/hermes-notify/commits/<sha>` resolves it, and all three pinned screenshot URLs return HTTP 200 (checked November 4, 2026 ET).
@@ -111,7 +127,7 @@ These are not marked pass or fixed because they have not been completed by this 
 
 ## Local verification receipt
 
-The runtime/UI behavior suites had 223 passing tests before this documentation audit. The added installed-skill test brings the total to 224: Python 124, Worker 22, App 42, Desktop 9, backend 27. Python and registration/skill tests are rerun for this audit; the unchanged Worker/App/Desktop/backend results are the prior verified runs, not newly claimed reruns. The full local approve/deny/timeout receipts remain in `.local/demo/`.
+All suites were rerun after strengthening the five review regressions: **228 passed** in total, comprising Python 126, Worker 23, App 42, Desktop 9 and backend 28. All ten focused regression cases pass with the fixes present and fail with the corresponding fix removed in isolated copies. Current full-suite logs and local approve/deny/timeout receipts are in `.local/regression-proof/full/`; the portable evidence record is [REGRESSION-EVIDENCE.json](REGRESSION-EVIDENCE.json).
 
 The authoritative Hermes source is pinned as above. Validation uses an empty home/profile, disabled project plugins and no operator credentials. The complete source export is scanned, including developer helpers. The development-only private-import warning is expected: those scripts explicitly exercise the real Hermes manager, guard context and admission checker. Production registration uses public APIs. `in_process` is intentional for the approval channel, not a sandbox claim.
 
@@ -251,7 +267,7 @@ Exit status: `0`. Stderr: empty (0 bytes). Full stdout:
 
 ```text
 .venv/bin/python -m pytest
-124 passed in 30.36s
+126 passed in 30.83s
 
 hermes plugins doctor <clean-export> --ci
 Plugin Doctor: <repo>/.local/submission-audit/head
