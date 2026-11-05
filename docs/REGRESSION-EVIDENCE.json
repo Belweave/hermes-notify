@@ -104,7 +104,7 @@
       "bug": 4,
       "baseline": "db1fdf025baee01353d41d2c3ffa382451b63be0",
       "command": [
-        "/Users/preetham/.local/bin/node",
+        "node",
         "worker/scripts/isolated.mjs",
         "test"
       ],
