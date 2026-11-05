@@ -1,9 +1,9 @@
 # Catalog submission draft for NousResearch/hermes-agent. Not yet submitted.
-# Pinned to 8c73716f9adbf6b3e26ec77651cf45508bee3e09, published on Belweave/hermes-notify main.
+# Pinned to d4da572ccfcca229b20ada76e0457eee09768430, published on Belweave/hermes-notify main.
 name: hermes-notify
 title: Hermes Pocket
 repo: https://github.com/Belweave/hermes-notify
-sha: "8c73716f9adbf6b3e26ec77651cf45508bee3e09"
+sha: "d4da572ccfcca229b20ada76e0457eee09768430"
 description: Release workspaces, progress, replies and exact phone approvals through Notify.
 maintainer: belweave
 tier: community
@@ -12,9 +12,9 @@ version: "0.2.0"
 readme: true
 platforms: [macos]
 screenshots:
-  - https://raw.githubusercontent.com/Belweave/hermes-notify/8c73716f9adbf6b3e26ec77651cf45508bee3e09/docs/screenshots/release-phone.png
-  - https://raw.githubusercontent.com/Belweave/hermes-notify/8c73716f9adbf6b3e26ec77651cf45508bee3e09/docs/screenshots/approval-phone.png
-  - https://raw.githubusercontent.com/Belweave/hermes-notify/8c73716f9adbf6b3e26ec77651cf45508bee3e09/docs/screenshots/shipped-phone.png
+  - https://raw.githubusercontent.com/Belweave/hermes-notify/d4da572ccfcca229b20ada76e0457eee09768430/docs/screenshots/release-phone.png
+  - https://raw.githubusercontent.com/Belweave/hermes-notify/d4da572ccfcca229b20ada76e0457eee09768430/docs/screenshots/approval-phone.png
+  - https://raw.githubusercontent.com/Belweave/hermes-notify/d4da572ccfcca229b20ada76e0457eee09768430/docs/screenshots/shipped-phone.png
 known_issues:
   - One native phone approval passed; the full deployed App, sign-in and Live Activity flow remain unverified.
   - A configured Cloudflare Worker and verified origin-specific owner are needed for private Apps.

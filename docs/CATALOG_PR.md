@@ -1,6 +1,6 @@
 # Draft: add Hermes Pocket to the plugin catalog
 
-Draft text for the catalog PR, which has not been opened yet. The repository is public at https://github.com/Belweave/hermes-notify. [The entry](../plugin-catalog/hermes-notify.yaml) is pinned to `8c73716f9adbf6b3e26ec77651cf45508bee3e09`, which is on public `main`, and its screenshot URLs use the same commit. The quoted version is `"0.2.0"`; the SHA is the install pin. The future upstream PR adds only `plugin-catalog/hermes-notify.yaml`, not the standalone implementation. Subsequent updates need a new catalog PR, a version label matching the new pin, and screenshot URLs updated to that pin.
+Draft text for the catalog PR, which has not been opened yet. The repository is public at https://github.com/Belweave/hermes-notify. [The entry](../plugin-catalog/hermes-notify.yaml) is pinned to `d4da572ccfcca229b20ada76e0457eee09768430`, which is on public `main` and includes the strengthened regression tests from `6dfd871`, and its screenshot URLs use the same commit. The quoted version is `"0.2.0"`; the SHA is the install pin. The future upstream PR adds only `plugin-catalog/hermes-notify.yaml`, not the standalone implementation. Subsequent updates need a new catalog PR, a version label matching the new pin, and screenshot URLs updated to that pin.
 
 ## What does this PR do?
 

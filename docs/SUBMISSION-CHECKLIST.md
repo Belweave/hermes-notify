@@ -115,6 +115,8 @@ Regression commands and full-suite commands are recorded in the evidence JSON an
 
 - **P1 DONE**: `8c73716f9adbf6b3e26ec77651cf45508bee3e09` is on public `main` at https://github.com/Belweave/hermes-notify. An anonymous clone checks it out, `gh api repos/Belweave/hermes-notify/commits/<sha>` resolves it, and all three pinned screenshot URLs return HTTP 200 (checked November 4, 2026 ET).
 
+- **P2 DONE**: The catalog pin moved to `d4da572ccfcca229b20ada76e0457eee09768430`, which adds the regression tests from `6dfd871` and a docs path scrub on top of `8c73716`. It resolves on GitHub and its three screenshot URLs return HTTP 200 (checked November 4, 2026 ET).
+
 ## Pending external evidence and actions
 
 These are not marked pass or fixed because they have not been completed by this local audit:
