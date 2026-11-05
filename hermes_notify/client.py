@@ -8,6 +8,10 @@ from urllib.parse import quote, urlencode, urlsplit
 from urllib.request import HTTPRedirectHandler, ProxyHandler, Request, build_opener
 
 API_BASE = "https://notify.belweave.ai/api/agent"
+VERSION = "0.2.0"
+# Name this client explicitly. Some edge networks, including workers.dev,
+# reject the default Python-urllib agent with 403 before the Worker runs.
+USER_AGENT = f"hermes-notify/{VERSION} (+https://github.com/Belweave/hermes-notify)"
 TEST_TOKEN = "dummy"
 MAX_RESPONSE_BYTES = 128 * 1024
 
@@ -89,7 +93,7 @@ class JsonClient:
         self._opener = build_opener(ProxyHandler({}), NoRedirects())
 
     def _request(self, method, path, *, timeout=5, body=None, key=None, authenticated=True):
-        headers = {"Accept": "application/json"}
+        headers = {"Accept": "application/json", "User-Agent": USER_AGENT}
         if authenticated:
             headers["Authorization"] = "Bearer " + self._token
         data = None

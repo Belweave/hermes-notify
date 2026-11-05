@@ -109,6 +109,7 @@ class PocketMock:
 
     def __init__(self):
         self.requests = []
+        self.user_agents = []
         self.responses = {}
         self.failures = {}
         self.apps = {}
@@ -245,6 +246,7 @@ class PocketMock:
                 pass
 
             def handle_request(self):
+                state.user_agents.append((self.command, urlsplit(self.path).path, self.headers.get("User-Agent")))
                 if self.path != "/api/health" and self.headers.get("Authorization") != "Bearer dummy":
                     self.send_error(401)
                     return

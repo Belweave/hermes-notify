@@ -802,3 +802,18 @@ def test_unicode_workspace_progress_respects_notify_utf16_limits(pocket):
     for key, limit in (("title", 80), ("status", 60), ("detail", 240)):
         assert len(body[key].encode("utf-16-le")) // 2 == limit
     assert not call(rt, "send", project="demo", body="update", title="\U0001f4f1" * 41)["ok"]
+
+
+def test_every_request_names_the_plugin_user_agent(pocket):
+    """workers.dev answers the default Python-urllib agent with 403."""
+    from hermes_notify.client import USER_AGENT, VERSION
+    rt, mock, _ = pocket
+    manifest = (Path(__file__).resolve().parents[1] / "plugin.yaml").read_text()
+    assert f'version: "{VERSION}"' in manifest
+    assert USER_AGENT == f"hermes-notify/{VERSION} (+https://github.com/Belweave/hermes-notify)"
+    begin(rt)
+    publish(rt)
+    routes = {(method, path) for method, path, _ in mock.user_agents}
+    assert ("GET", "/api/health") in routes
+    assert any(method == "PUT" and path.startswith("/api/projects/") for method, path in routes)
+    assert {agent for _, _, agent in mock.user_agents} == {USER_AGENT}
