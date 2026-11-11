@@ -1,7 +1,8 @@
 # Catalog PRs
 
 - 0.2.0: [NousResearch/hermes-agent#149220](https://github.com/NousResearch/hermes-agent/pull/149220), merged, pinned to `698b66b`, macOS only.
-- 0.2.1: SHA-bump PR pinned to `8da4f2bf8a682bc5520757f66c2b804e02426aaa`: Linux and Windows support, standalone `notify_send`/`notify_ask`, `hermes notify setup` onboarding, no install-time dependency consent. CI passes on ubuntu, macOS and Windows.
+- 0.2.2: [#153618](https://github.com/NousResearch/hermes-agent/pull/153618) re-pinned to `e861cca4f29310913c1d4c315dafff67159d728b`: setup applies without a restart, phone approvals by default with terminal fallback.
+- 0.2.1 (superseded before merge): SHA-bump PR pinned to `8da4f2bf8a682bc5520757f66c2b804e02426aaa`: Linux and Windows support, standalone `notify_send`/`notify_ask`, `hermes notify setup` onboarding, no install-time dependency consent. CI passes on ubuntu, macOS and Windows.
 
 The 0.2.0 PR description follows.
 
