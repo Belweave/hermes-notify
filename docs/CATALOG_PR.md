@@ -1,3 +1,10 @@
+# Catalog PRs
+
+- 0.2.0: [NousResearch/hermes-agent#149220](https://github.com/NousResearch/hermes-agent/pull/149220), merged, pinned to `698b66b`, macOS only.
+- 0.2.1: SHA-bump PR pinned to `15651c9220ccf780f988b57f5ab1d249a9cbf654`: Linux and Windows support, standalone `notify_send`/`notify_ask`, `hermes notify setup` onboarding, no install-time dependency consent. CI passes on ubuntu, macOS and Windows.
+
+The 0.2.0 PR description follows.
+
 # Catalog PR: add Hermes Pocket to the plugin catalog
 
 The catalog PR is open: [NousResearch/hermes-agent#149220](https://github.com/NousResearch/hermes-agent/pull/149220). This is its description text. The repository is public at https://github.com/Belweave/hermes-notify. [The entry](../plugin-catalog/hermes-notify.yaml) is pinned to `698b66b6d64a87d317ba97938f37f9ed75f04cd6`, which is on public `main`. It adds the explicit `hermes-notify/0.2.0` User-Agent fix (workers.dev answers Python's default agent with 403) on top of the Paper design pass and the regression tests from `6dfd871`. Its screenshot URLs use the same commit. The quoted version is `"0.2.0"`; the SHA is the install pin. The upstream PR adds only `plugin-catalog/hermes-notify.yaml`, not the standalone implementation. Subsequent updates need a new catalog PR, a version label matching the new pin, and screenshot URLs updated to that pin.
