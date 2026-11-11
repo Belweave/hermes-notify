@@ -50,7 +50,7 @@ def test_registered_api_shapes_and_manifest_match(tmp_path, monkeypatch):
         assert set(capabilities["provides_tools"]) == set(registered)
         assert set(capabilities["provides_hooks"]) == set(hooks)
         assert capabilities["provides_middleware"] == manifest.get("provides_middleware", []) == []
-        assert capabilities["requires_env"] == manifest["requires_env"]
+        assert capabilities["requires_env"] == [e if isinstance(e, str) else e["name"] for e in manifest["requires_env"]]
         assert catalog["name"] == manifest["name"] and catalog["version"] == manifest["version"]
         assert set(transports) == {"notify"}
         assert skills[0][0][0] == "notify-release-workspace"

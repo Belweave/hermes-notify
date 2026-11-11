@@ -59,12 +59,14 @@ class Runtime(Publisher, Progress, Replies):
         if self.stopped.is_set():
             raise NotifyError("Hermes Pocket has unloaded")
         if not self.enabled:
-            raise NotifyError("Hermes Pocket is disabled; enable it in this profile")
+            raise NotifyError("Notify is not set up yet. Ask the user to run `hermes notify setup` in a terminal, then start a new session")
 
     @property
     def api(self):
         self._ready()
         if self._notify is None:
+            if not self.token:
+                raise NotifyError("No Notify key is saved. Ask the user to run `hermes notify setup` in a terminal, then start a new session")
             self._notify = NotifyClient(self.token, self.test_url or API_BASE)
         return self._notify
 

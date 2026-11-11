@@ -10,6 +10,10 @@ def register(ctx):
     from .hermes_notify.runtime import Runtime
     from .hermes_notify.tools import SCHEMAS, calling_session
 
+    if hasattr(ctx, "register_cli_command"):
+        from .hermes_notify.onboarding import register_cli
+        register_cli(ctx)
+
     if hasattr(ctx, "register_skill"):
         from . import skills
         skills.register(ctx)

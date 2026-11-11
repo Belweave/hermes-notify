@@ -5,7 +5,7 @@ import shutil
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-ROOT_FILES = ("__init__.py", "plugin.yaml", "LICENSE", "README.md", "pyproject.toml", "uv.lock")
+ROOT_FILES = ("__init__.py", "plugin.yaml", "after-install.md", "LICENSE", "README.md", "pyproject.toml", "uv.lock")
 SOURCE_DIRS = ("hermes_notify", "scripts", "tests", "docs", "desktop", "dashboard", "skills", "app", "worker", "plugin-catalog")
 EXCLUDED = shutil.ignore_patterns(
     "__pycache__", "*.pyc", "node_modules", "dist", "test-results", "playwright-report",

@@ -8,36 +8,24 @@ The full workflow passes locally with real Hermes, local workerd, and synthetic 
 
 ## Quick start (macOS, Linux, Windows)
 
-You only need a Notify API token for phone notifications and questions. The Cloudflare Worker, release workspaces and Live Activities are optional extras.
+```sh
+hermes plugins install hermes-notify     # press Enter at the token prompt
+hermes plugins enable hermes-notify
+hermes notify setup
+```
 
-1. Install and enable the plugin:
+`hermes notify setup` does the rest in about a minute:
 
-   ```sh
-   hermes plugins install hermes-notify
-   hermes plugins enable hermes-notify
-   ```
+1. **Sign in or sign up.** It prints a short code and link (and opens your browser when it can). Sign in with Apple or Google; a free Notify account is created if you don't have one. Approve "Hermes". This works over SSH too: open the link on any device.
+2. **Save the key.** A scoped API key is minted for this computer, saved to the Hermes profile `.env` (`~/.hermes/.env`, or `%LOCALAPPDATA%\hermes\.env` on native Windows), and the plugin is switched on. You never copy or paste a token.
+3. **Connect your phone.** It links the Notify app ([iPhone TestFlight](https://testflight.apple.com/join/1MDYPc7a), [Android](https://github.com/Belweave/notify/tree/main/apps/android)) and waits until your phone registers.
+4. **Test.** It sends "Hermes is connected" to your phone.
 
-2. Add your token to the Hermes secrets file (`~/.hermes/.env`, or `%LOCALAPPDATA%\hermes\.env` on native Windows):
+Then start a new Hermes session and say, for example, "Send me a Notify message when the tests finish" or "Ask me on my phone whether to deploy and wait for my answer."
 
-   ```sh
-   NOTIFY_API_TOKEN=ntf_...
-   ```
+Other commands: `hermes notify status` (key, plugin and phones), `hermes notify test` (send a test), `hermes notify setup --reauth` (replace the key).
 
-   Create a token at [notify.belweave.ai](https://notify.belweave.ai/docs) with `notifications:send`, `interactions:create` and `interactions:read`.
-
-3. Turn the runtime on in `config.yaml`, keeping your other settings:
-
-   ```yaml
-   plugins:
-     entries:
-       hermes-notify:
-         settings:
-           enabled: true
-   ```
-
-4. Start a new Hermes session and ask, for example, "Send me a Notify message when the tests finish" or "Ask me on my phone whether to deploy".
-
-`notify_send`, `notify_ask` and `notify_replies` work on their own; `project` is optional and defaults to `hermes`. Phone approvals for Hermes commands are opt-in: add `security.approval.transport: notify` as shown in [Configure](#configure-after-live-setup-is-authorized).
+`notify_send`, `notify_ask` and `notify_replies` work on their own; `project` is optional and defaults to `hermes`. The Cloudflare Worker, release workspaces and Live Activities are optional extras. Phone approvals for Hermes commands are opt-in: add `security.approval.transport: notify` as shown in [Configure](#configure-after-live-setup-is-authorized).
 
 The Python runtime uses only the standard library and runs the same on macOS, Linux and Windows. CI runs the test suite on all three.
 
