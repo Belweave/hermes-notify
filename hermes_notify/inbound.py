@@ -16,6 +16,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 PATH = "/notify/webhook"
 MAX_BODY = 64 * 1024
 TOLERANCE_SECONDS = 300
+RETRY_SECONDS = 15
 EVENTS = ("interaction.answered", "interaction.expired", "interaction.canceled")
 logger = logging.getLogger("hermes_notify")
 
@@ -47,6 +48,8 @@ class Inbound:
         self.server = None
         self.address = None
         self.failed = None
+        self.closed = False
+        self.retry = None
         self.lock = threading.Lock()
 
     @property
@@ -61,18 +64,34 @@ class Inbound:
                 self._stop()
             if self.server is not None or not wanted[1] or not self.secret:
                 return
-            if self.failed and self.failed[0] == wanted and time.monotonic() - self.failed[1] < 15:
+            if self.closed or (self.failed and self.failed[0] == wanted and time.monotonic() - self.failed[1] < RETRY_SECONDS - 1):
                 return
             try:
                 server = ThreadingHTTPServer(wanted, self._handler())
             except OSError as exc:
+                if not self.failed:
+                    logger.info("Notify webhook listener waiting for %s:%s (%s); retrying every %ss",
+                                *wanted, type(exc).__name__, RETRY_SECONDS)
                 self.failed = (wanted, time.monotonic())
-                logger.info("Notify webhook listener not started on %s:%s (%s)", *wanted, type(exc).__name__)
+                # Another short-lived Hermes command (`hermes notify ...`, `hermes gateway restart`)
+                # may hold the port for a moment. Keep trying so a long-running gateway takes over.
+                if not self.closed and (self.retry is None or not self.retry.is_alive()):
+                    self.retry = threading.Timer(RETRY_SECONDS, self._retry, args=(wanted,))
+                    self.retry.daemon = True
+                    self.retry.start()
                 return
             server.daemon_threads = True
             self.server, self.address, self.failed = server, wanted, None
             threading.Thread(target=server.serve_forever, kwargs={"poll_interval": 0.5},
                              name="hermes-notify-inbound", daemon=True).start()
+
+    def _retry(self, wanted):
+        with self.lock:
+            if self.closed or self.server is not None or not self.failed or self.failed[0] != wanted:
+                return
+            self.failed = (wanted, 0)
+            secret = self.secret
+        self.ensure(port=wanted[1], host=wanted[0], secret=secret)
 
     def _stop(self):
         server, self.server, self.address = self.server, None, None
@@ -82,6 +101,9 @@ class Inbound:
 
     def close(self):
         with self.lock:
+            self.closed = True
+            if self.retry is not None:
+                self.retry.cancel()
             self._stop()
 
     def _handler(self):

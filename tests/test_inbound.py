@@ -85,3 +85,23 @@ def test_no_listener_without_port_or_secret(tmp_path):
         assert not rt.inbound.listening
     finally:
         rt.close()
+
+
+def test_listener_takes_the_port_once_it_is_free(tmp_path, monkeypatch):
+    from hermes_notify import inbound as module
+    monkeypatch.setattr(module, "RETRY_SECONDS", 1)
+    port = free_port()
+    blocker = socket.socket()
+    blocker.bind(("127.0.0.1", port))
+    blocker.listen()
+    rt = Runtime(tmp_path, enabled=True, token="dummy", webhook_secret="whsec", settings={"inbound_webhook_port": port})
+    try:
+        assert not rt.inbound.listening
+        blocker.close()
+        deadline = time.monotonic() + 10
+        while not rt.inbound.listening and time.monotonic() < deadline:
+            time.sleep(0.1)
+        assert rt.inbound.listening
+    finally:
+        blocker.close()
+        rt.close()
