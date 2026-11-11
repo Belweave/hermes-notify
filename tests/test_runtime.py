@@ -1,3 +1,4 @@
+import os
 import importlib.util
 import json
 import threading
@@ -150,8 +151,9 @@ def test_release_lifecycle_snapshot_and_revisions(pocket):
     assert set(snapshot) == {"schemaVersion", "configured", "runs", "pending", "deliveries", "updatedAt"}
     assert snapshot["runs"][0]["status"] == "shipped"
     assert mock.requests == []
-    assert rt.journal.path.stat().st_mode & 0o777 == 0o600
-    assert (rt.journal.directory / "status.json").stat().st_mode & 0o777 == 0o600
+    if os.name != "nt":  # POSIX permission bits only
+        assert rt.journal.path.stat().st_mode & 0o777 == 0o600
+        assert (rt.journal.directory / "status.json").stat().st_mode & 0o777 == 0o600
 
 
 def test_begin_duplicate_and_old_revisions(pocket):

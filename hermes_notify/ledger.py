@@ -12,7 +12,8 @@ class Ledger:
         self.path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
         fd = os.open(self.path, os.O_CREAT | os.O_RDWR, 0o600)
         os.close(fd)
-        os.chmod(self.path, 0o600)
+        if os.name != "nt":
+            os.chmod(self.path, 0o600)
         with self._connect() as db:
             db.execute("""CREATE TABLE IF NOT EXISTS approvals (
                 request_id TEXT PRIMARY KEY, request_digest TEXT NOT NULL,

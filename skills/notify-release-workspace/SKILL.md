@@ -1,7 +1,7 @@
 ---
 name: notify-release-workspace
 description: Manage releases, phone approvals, and replies with Notify.
-version: 0.2.0
+version: 0.2.1
 author: Preetham Kyanam (pkyanam)
 license: MIT
 ---

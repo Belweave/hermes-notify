@@ -38,6 +38,22 @@ def notify_clip(value, limit):
     return value.encode("utf-16-le")[:limit * 2].decode("utf-16-le", errors="ignore")
 
 
+DEFAULT_PROJECT = "hermes"
+PROJECT_TOOLS = {"notify_send", "notify_ask", "notify_replies"}
+
+
+def normalize_project(tool, args):
+    """Accept friendly project names ("My App") and default the project for simple tools."""
+    args = dict(args)
+    value = args.get("project")
+    if value is None and tool in PROJECT_TOOLS:
+        value = DEFAULT_PROJECT
+    if isinstance(value, str):
+        cleaned = re.sub(r"[^a-z0-9]+", "-", value.strip().lower()).strip("-")[:64].strip("-")
+        args["project"] = cleaned or DEFAULT_PROJECT
+    return args
+
+
 def slug(value):
     if not isinstance(value, str) or not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,63}", value):
         raise NotifyError("Invalid project slug", status=400)

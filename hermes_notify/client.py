@@ -8,7 +8,7 @@ from urllib.parse import quote, urlencode, urlsplit
 from urllib.request import HTTPRedirectHandler, ProxyHandler, Request, build_opener
 
 API_BASE = "https://notify.belweave.ai/api/agent"
-VERSION = "0.2.0"
+VERSION = "0.2.1"
 # Name this client explicitly. Some edge networks, including workers.dev,
 # reject the default Python-urllib agent with 403 before the Worker runs.
 USER_AGENT = f"hermes-notify/{VERSION} (+https://github.com/Belweave/hermes-notify)"

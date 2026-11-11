@@ -9,7 +9,7 @@ from .workspace import digest, now, notify_text, text
 
 class Replies:
     def ask(self, args, session):
-        run = self._run(args, session)
+        run = self._session_run(args, session)
         kind = args.get("kind", "reply")
         if kind not in ("approval", "yes_no", "reply"):
             raise NotifyError("Invalid business question kind", status=400)
@@ -174,7 +174,7 @@ class Replies:
                 self.journal.put("event", event["id"], event)
 
     def replies(self, args, session):
-        run = self._run(args, session)
+        run = self._session_run(args, session)
         project, rid = run["workspace"]["project"], run["workspace"]["runId"]
         mapping = self.journal.get("project", project, {})
         errors = []

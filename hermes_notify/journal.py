@@ -13,6 +13,26 @@ from pathlib import Path
 from .client import NotifyError
 
 
+def _replace(source, target, attempts=20):
+    """Atomic replace. On Windows a concurrent reader (the dashboard) can briefly
+    hold the target open, which makes os.replace raise PermissionError; retry."""
+    for attempt in range(attempts):
+        try:
+            os.replace(source, target)
+            return
+        except PermissionError:
+            if os.name != "nt" or attempt == attempts - 1:
+                raise
+            time.sleep(0.025 * (attempt + 1))
+
+
+def _private(path):
+    # POSIX permission bits; Windows ignores everything but the read-only flag,
+    # and profile directories there are already private to the user.
+    if os.name != "nt":
+        os.chmod(path, 0o600)
+
+
 def encode(value):
     return json.dumps(value, sort_keys=True, separators=(",", ":"), allow_nan=False, ensure_ascii=False)
 
@@ -27,7 +47,7 @@ class Journal:
         self.max_records = max_records
         fd = os.open(self.path, os.O_CREAT | os.O_RDWR, 0o600)
         os.close(fd)
-        os.chmod(self.path, 0o600)
+        _private(self.path)
         with self.connect() as db:
             db.execute("PRAGMA journal_mode=DELETE")
             db.execute("PRAGMA secure_delete=ON")
@@ -121,7 +141,7 @@ class Journal:
                     stream.write(raw)
                     stream.flush()
                     os.fsync(stream.fileno())
-                os.replace(path, self.directory / "status.json")
+                _replace(path, self.directory / "status.json")
             finally:
                 if os.path.exists(path):
                     os.unlink(path)

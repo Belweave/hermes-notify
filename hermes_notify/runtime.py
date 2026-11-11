@@ -14,7 +14,7 @@ from .publisher import Publisher
 from .progress import Progress
 from .replies import Replies
 from .queue import WorkQueue
-from .workspace import EDITABLE, TERMINAL, digest, now, notify_text, run_id, slug, text, validate
+from .workspace import EDITABLE, TERMINAL, digest, normalize_project, now, notify_text, run_id, slug, text, validate
 
 
 @dataclass(frozen=True)
@@ -95,6 +95,27 @@ class Runtime(Publisher, Progress, Replies):
             raise NotifyError("Release run does not belong to the calling session", status=403)
         return run
 
+    def _session_run(self, args, session):
+        """The caller's run for this project, or a lightweight "updates" run.
+
+        Sending a notification or asking a question must not require the full
+        release workflow or a Worker. Ownership rules are unchanged: another
+        session's unfinished run is never reused.
+        """
+        try:
+            return self._run(args, session)
+        except NotifyError as exc:
+            if exc.status != 403 or args.get("run_id"):
+                raise
+        project = slug(args.get("project"))
+        mapping = self.journal.get("project", project, {})
+        current = self.journal.get("run", mapping["runId"]) if mapping.get("runId") else None
+        if current and current["workspace"]["status"] not in TERMINAL:
+            raise NotifyError("Another session owns this project's active release; use a different project name", status=409)
+        self.release({"action": "begin", "project": project, "version": "updates", "name": project,
+                      "stage": "Updates"}, session)
+        return self._run({"project": project}, session)
+
     def _save_run(self, run):
         validate(run["workspace"])
         self.journal.put("run", run["workspace"]["runId"], run)
@@ -111,6 +132,7 @@ class Runtime(Publisher, Progress, Replies):
         try:
             if not isinstance(args, dict):
                 raise NotifyError("Tool arguments must be an object", status=400)
+            args = normalize_project(name, args)
             with self.lock:
                 if name == "notify_status":
                     return self.status(args, session)
@@ -247,7 +269,7 @@ class Runtime(Publisher, Progress, Replies):
         return "not_accepted"
 
     def send(self, args, session):
-        run = self._run(args, session)
+        run = self._session_run(args, session)
         body = {"body": notify_text(args.get("body"), 8000, "body"), "project": run["workspace"]["project"]}
         if len(body["body"].encode()) > 16384:
             raise NotifyError("Notification body exceeded byte limit", status=400)

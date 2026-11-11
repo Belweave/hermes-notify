@@ -136,7 +136,8 @@ def _read_snapshot():
     directory = PluginState("hermes-notify").data_dir
     if directory.is_symlink() or directory.parent.is_symlink():
         raise ValueError("Invalid storage")
-    flags = os.O_RDONLY | os.O_NONBLOCK | getattr(os, "O_NOFOLLOW", 0)
+    # O_NONBLOCK and O_NOFOLLOW are POSIX-only; O_BINARY is Windows-only.
+    flags = os.O_RDONLY | getattr(os, "O_NONBLOCK", 0) | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_BINARY", 0)
     fd = os.open(directory / "status.json", flags)
     with os.fdopen(fd, "rb") as handle:
         info = os.fstat(handle.fileno())

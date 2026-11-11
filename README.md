@@ -6,6 +6,41 @@ The local implementation includes a complete release App, a configurable Cloudfl
 
 The full workflow passes locally with real Hermes, local workerd, and synthetic Notify responses. A separate authorized phone test also passed: one real approval returned Hermes's `once` decision. **Worker deployment, App sign-in, deep links and live progress remain unverified.** See [verification](docs/VERIFICATION.md) and the [85-second demo plan](docs/DEMO.md).
 
+## Quick start (macOS, Linux, Windows)
+
+You only need a Notify API token for phone notifications and questions. The Cloudflare Worker, release workspaces and Live Activities are optional extras.
+
+1. Install and enable the plugin:
+
+   ```sh
+   hermes plugins install hermes-notify
+   hermes plugins enable hermes-notify
+   ```
+
+2. Add your token to the Hermes secrets file (`~/.hermes/.env`, or `%LOCALAPPDATA%\hermes\.env` on native Windows):
+
+   ```sh
+   NOTIFY_API_TOKEN=ntf_...
+   ```
+
+   Create a token at [notify.belweave.ai](https://notify.belweave.ai/docs) with `notifications:send`, `interactions:create` and `interactions:read`.
+
+3. Turn the runtime on in `config.yaml`, keeping your other settings:
+
+   ```yaml
+   plugins:
+     entries:
+       hermes-notify:
+         settings:
+           enabled: true
+   ```
+
+4. Start a new Hermes session and ask, for example, "Send me a Notify message when the tests finish" or "Ask me on my phone whether to deploy".
+
+`notify_send`, `notify_ask` and `notify_replies` work on their own; `project` is optional and defaults to `hermes`. Phone approvals for Hermes commands are opt-in: add `security.approval.transport: notify` as shown in [Configure](#configure-after-live-setup-is-authorized).
+
+The Python runtime uses only the standard library and runs the same on macOS, Linux and Windows. CI runs the test suite on all three.
+
 ## Install
 
 The source repository is [Belweave/hermes-notify](https://github.com/Belweave/hermes-notify). This is a catalog candidate; installation by the bare catalog name becomes available only after maintainer acceptance. Use a Hermes build with the public approval transport API. The verified source revision is recorded below; no minimum released version is claimed.
@@ -39,6 +74,8 @@ node worker/scripts/isolated.mjs build
 .venv/bin/python scripts/release_demo.py --answer deny
 .venv/bin/python scripts/release_demo.py --answer timeout
 ```
+
+On Windows, use `.venv\Scripts\python` in place of `.venv/bin/python`.
 
 Each rehearsal loads the plugin through the real Hermes manager and calls its registered tools. A local Cloudflare runtime stores the published workspace. A signed synthetic microAuth pass opens a session and posts a written reply; Hermes retrieves it once, attributed to its original task. A separate simulated phone actor answers the real Hermes approval request. Only an approved action writes a local release receipt. The App and Live Activity then reach the final state.
 
