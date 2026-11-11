@@ -22,8 +22,44 @@ SETTINGS = {
     "worker_subdomain": "", "progress_enabled": False, "progress_interval_seconds": 5,
     "retention_days": 30, "allow_reply_injection": False,
 }
-NOT_SET_UP = "Notify is not set up yet. Ask the user to run `hermes notify setup` in a terminal"
+NOT_SET_UP = ("Notify is not turned on in this Hermes process. If the user has not run `hermes notify setup`, "
+              "ask them to run it in a terminal. If `hermes notify status` already says the plugin is on, "
+              "this process is stale: ask them to restart Hermes (and the gateway, if one is running). "
+              "notify_status shows lastConfigError.")
 NO_KEY = "No Notify key is saved. Ask the user to run `hermes notify setup` in a terminal"
+
+
+def _profile_home():
+    import os
+    from agent import secret_scope
+    home = secret_scope.current_secret_scope_home()
+    if not home and not secret_scope.is_multiplex_active():
+        home = os.environ.get("HERMES_HOME") or os.path.join(os.path.expanduser("~"), ".hermes")
+    return home
+
+
+def profile_setting(key, default=None):
+    """This plugin's setting read straight from the active profile's config.yaml.
+
+    Used only as a fallback when the loader's context still reports the value it saw at load.
+    """
+    import os
+    try:
+        home = _profile_home()
+        if not home:
+            return default
+        with open(os.path.join(home, "config.yaml"), encoding="utf-8") as handle:
+            raw = handle.read()
+        try:  # Hermes itself ships ruamel.yaml; PyYAML is only a fallback.
+            from ruamel.yaml import YAML
+            data = YAML(typ="safe", pure=True).load(raw) or {}
+        except ImportError:
+            import yaml
+            data = yaml.safe_load(raw) or {}
+        settings = ((data.get("plugins") or {}).get("entries") or {}).get("hermes-notify", {}).get("settings") or {}
+        return settings.get(key, default)
+    except Exception:
+        return default
 
 
 def resolve_secret(name):
@@ -82,6 +118,7 @@ class Runtime(Publisher, Progress, Replies):
         self.queue = WorkQueue(self._work, self._background_failure)
         self._notify = self._notify_key = None
         self._worker = self._worker_key = None
+        self.last_config_error = None
         # Lost host requests are never resumed as permissions after restart.
         for approval in self.journal.all("approval"):
             if approval["status"] == "pending":
@@ -100,6 +137,14 @@ class Runtime(Publisher, Progress, Replies):
         with self.lock:
             self.enabled, self.token, self.publish_token = enabled is True, token or "", publish_token or ""
             self.settings, self.test_url, self.test_worker_url = settings, test_url, test_worker_url
+            self.last_config_error = None
+
+    def config_error(self, name):
+        """A refresh failed: keep the last configuration, but make the failure visible."""
+        import logging
+        if self.last_config_error != name:
+            logging.getLogger("hermes_notify").warning("Notify configuration refresh failed: %s", name)
+        self.last_config_error = name
 
     def _ready(self):
         if self.stopped.is_set():
@@ -161,7 +206,7 @@ class Runtime(Publisher, Progress, Replies):
         project = slug(args.get("project"))
         mapping = self.journal.get("project", project, {})
         current = self.journal.get("run", mapping["runId"]) if mapping.get("runId") else None
-        if current and current["workspace"]["status"] not in TERMINAL:
+        if current and current["workspace"]["status"] not in TERMINAL and not current.get("auto"):
             raise NotifyError("Another session owns this project's active release; use a different project name", status=409)
         self.release({"action": "begin", "project": project, "version": "updates", "name": project,
                       "stage": "Updates"}, session)
@@ -229,7 +274,8 @@ class Runtime(Publisher, Progress, Replies):
                 return {"workspace": existing["workspace"], "resumed": True}
             mapping = self.journal.get("project", project, {})
             previous = self.journal.get("run", mapping.get("runId", ""))
-            replaceable = previous and previous.get("auto") and session.matches(previous)
+            # A lightweight "updates" run never locks a project, whichever session created it.
+            replaceable = previous and previous.get("auto")
             if previous and previous["workspace"]["status"] not in TERMINAL and not replaceable:
                 raise NotifyError("Finish the current project run before starting another", status=409)
             w = {"schemaVersion": 1, "project": project, "runId": rid, "revision": 1,
@@ -359,8 +405,21 @@ class Runtime(Publisher, Progress, Replies):
         self.journal.put("delivery", project, record)
         self.snapshot()
 
+    def _sweep_questions(self):
+        """Questions past their deadline are expired locally, so nothing stays pending forever."""
+        for q in self.journal.all("question"):
+            if q["status"] == "pending" and time.time() > q.get("deadline", 0):
+                q.update(status="expired", stale=True)
+                self.journal.put("question", q["id"], q)
+
+    def pending_questions(self):
+        return [{"interactionId": q["id"], "project": q["project"], "kind": q["body"]["kind"],
+                 "title": q["body"]["title"], "deadline": q["deadline"]}
+                for q in self.journal.all("question") if q["status"] == "pending"][:30]
+
     def snapshot(self):
         configured = self.configured
+        self._sweep_questions()
         if configured:
             # A "not set up" record from before `hermes notify setup` is resolved now.
             for record in self.journal.all("delivery"):
@@ -370,6 +429,7 @@ class Runtime(Publisher, Progress, Replies):
                  "runs": [r["workspace"] for r in self.journal.all("run")[:10]],
                  "pending": [{"requestId": a["requestId"], "title": a["title"], "status": a["status"]}
                              for a in self.journal.all("approval")[:30]],
+                 "pendingQuestions": self.pending_questions(),
                  "deliveries": self.journal.all("delivery")[:30], "updatedAt": now()}
         while len(encode(value).encode()) > 480 * 1024 and value["runs"]:
             value["runs"].pop()
@@ -382,7 +442,7 @@ class Runtime(Publisher, Progress, Replies):
         if args.get("project"):
             run = self._run(args, session)
             value["runs"] = [run["workspace"]]
-        return {"ok": True, **value, "enabled": self.enabled,
+        return {"ok": True, **value, "enabled": self.enabled, "lastConfigError": self.last_config_error,
                 "publisherConfigured": bool(self.publish_token and (self.settings.get("publisher_origin") or self.settings.get("worker_name"))),
                 "queueDropped": self.queue.dropped,
                 "publications": [self._publication_result(p) for p in self.journal.all("publication")[:20]],
@@ -491,11 +551,14 @@ class Runtime(Publisher, Progress, Replies):
 
     def close(self):
         self.stopped.set()
-        abandoned = self.queue.close()
         try:
+            abandoned = self.queue.close()
             if abandoned:
                 self._background_failure("Plugin unloaded with queued work; retry from the owning session")
+            self.journal.directory.mkdir(parents=True, exist_ok=True)
             self.snapshot()
-        except (OSError, sqlite3.Error, NotifyError):
-            # Unload must not fail because profile storage was removed or is being replaced.
-            pass
+        except Exception as exc:
+            # Unload must never fail or surface a storage driver message, e.g. when the profile
+            # directory is removed or replaced during a reinstall.
+            import logging
+            logging.getLogger("hermes_notify").warning("Notify unload skipped final state write: %s", type(exc).__name__)

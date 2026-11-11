@@ -30,11 +30,11 @@ SCHEMAS = [
     schema("notify_send", "Send a push notification to the user's phone through Notify. Works on its own; no release run or Worker is needed. A receipt proves provider acceptance only. Reuse idempotency_key for the same intended update.",
            PROJECT | {"title": STRING, "body": STRING, "summary": STRING, "url": STRING, "imageUrl": STRING,
                       "body_format": {"type": "string", "enum": ["text", "markdown"]}, "idempotency_key": STRING}, ["body"]),
-    schema("notify_ask", "Ask the user a question on their phone (approval, yes_no or free-text reply). Works on its own. Set wait_seconds (up to 25) to wait for the answer; otherwise collect it later with notify_replies. This never grants a Hermes host permission.",
+    schema("notify_ask", "Ask the user a question on their phone (approval, yes_no or free-text reply). Works on its own. Set wait_seconds (up to 25) to wait briefly. If the result is still pending (mustPoll: true), the answer is NOT delivered automatically: you must call notify_replies with the same project to collect it. This never grants a Hermes host permission.",
            PROJECT | {"title": STRING, "prompt": STRING, "kind": {"type": "string", "enum": ["approval", "yes_no", "reply"]},
                       "expires_in_seconds": {"type": "integer", "minimum": 30, "maximum": 86400},
                       "wait_seconds": {"type": "number", "minimum": 0, "maximum": 25}, "idempotency_key": STRING}, ["prompt"]),
-    schema("notify_replies", "Collect attributed replies for the original release and calling session. Polls only on demand. Injection additionally requires operator opt-in and host authorization.",
+    schema("notify_replies", "Collect phone answers to notify_ask questions (any kind) for a project, plus release workspace replies for the calling session's release. Required after notify_ask returns pending. Works from any session of this profile unless another session owns a full release of that project. Injection additionally requires operator opt-in and host authorization.",
            PROJECT | {"inject": {"type": "boolean"}}, []),
     schema("notify_status", "Read bounded local configuration, release, approval and delivery state. Makes no network requests.", PROJECT, []),
 ]

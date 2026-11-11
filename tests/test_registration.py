@@ -189,3 +189,52 @@ def test_setup_after_load_works_without_restart(tmp_path, monkeypatch):
         finally:
             for stop in cleanup:
                 stop()
+
+
+def test_stale_loader_config_falls_back_to_profile_file(tmp_path, monkeypatch):
+    """Regression (0.2.2): a context whose get_config kept its load-time view (enabled=False)
+    left a long-running gateway "not set up" while config.yaml said the plugin was on."""
+    from agent import secret_scope
+    home = tmp_path / "home"
+    home.mkdir()
+    monkeypatch.setenv("HERMES_HOME", str(home))
+    monkeypatch.delenv("NOTIFY_API_TOKEN", raising=False)
+    registered, cleanup = {}, []
+    with PocketMock().serve() as url:
+        monkeypatch.setenv("HERMES_NOTIFY_TEST_URL", url + "/api/agent")
+        ctx = SimpleNamespace(state=SimpleNamespace(data_dir=tmp_path / "data"),
+                              get_config=lambda k, d=None: False if k == "enabled" else d,
+                              register_tool=lambda **kw: registered.update({kw["name"]: kw}), register_hook=lambda *_: None,
+                              register_approval_transport=lambda *_: None, on_unload=cleanup.append)
+        load_plugin().register(ctx)
+        try:
+            (home / ".env").write_text("NOTIFY_API_TOKEN=dummy\n")
+            secret_scope.invalidate_env_file_cache(home / ".env")
+            (home / "config.yaml").write_text("plugins:\n  enabled: [hermes-notify]\n  entries:\n"
+                                              "    hermes-notify:\n      settings:\n        enabled: true\n")
+            after = json.loads(registered["notify_send"]["handler"]({"body": "hi"}, session_id="s1"))
+            assert after["ok"], after
+        finally:
+            for stop in cleanup:
+                stop()
+
+
+def test_refresh_failure_is_reported_not_swallowed(tmp_path, monkeypatch):
+    registered, cleanup = {}, []
+    state = {"fail": False}
+
+    def get_config(key, default=None):
+        if state["fail"]:
+            raise LookupError("boom")
+        return default
+    ctx = SimpleNamespace(state=SimpleNamespace(data_dir=tmp_path / "data"), get_config=get_config,
+                          register_tool=lambda **kw: registered.update({kw["name"]: kw}), register_hook=lambda *_: None,
+                          register_approval_transport=lambda *_: None, on_unload=cleanup.append)
+    load_plugin().register(ctx)
+    try:
+        state["fail"] = True
+        status = json.loads(registered["notify_status"]["handler"]({}, session_id="s1"))
+        assert status["lastConfigError"] == "LookupError" and "boom" not in json.dumps(status)
+    finally:
+        for stop in cleanup:
+            stop()

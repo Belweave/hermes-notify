@@ -148,7 +148,7 @@ def test_release_lifecycle_snapshot_and_revisions(pocket):
     done = finish(rt)
     assert done["workspace"]["status"] == "shipped"
     snapshot = json.loads((rt.journal.directory / "status.json").read_text())
-    assert set(snapshot) == {"schemaVersion", "configured", "runs", "pending", "deliveries", "updatedAt"}
+    assert set(snapshot) == {"schemaVersion", "configured", "runs", "pending", "pendingQuestions", "deliveries", "updatedAt"}
     assert snapshot["runs"][0]["status"] == "shipped"
     assert mock.requests == []
     if os.name != "nt":  # POSIX permission bits only

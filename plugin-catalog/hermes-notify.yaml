@@ -8,7 +8,7 @@ description: "Phone notifications, questions, release progress and exact command
 maintainer: belweave
 tier: community
 category: automation
-version: "0.2.2"
+version: "0.2.3"
 readme: true
 platforms: [macos, linux, windows]
 screenshots:

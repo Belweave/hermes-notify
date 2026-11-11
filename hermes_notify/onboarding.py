@@ -336,18 +336,39 @@ def cmd_setup(ctx, args):
     return 0
 
 
+def readiness(ctx):
+    """One answer to "can Notify tools work right now", shared by `hermes notify status`.
+
+    Returns (key_saved, loaded_enabled, file_enabled): what Hermes's loaded config says and what
+    the profile's config.yaml on disk says. They differ when a process loaded before setup.
+    """
+    from .runtime import profile_setting
+    token = _saved_token()
+    loaded = ctx.get_config("enabled", False) is True if ctx is not None else None
+    on_disk = profile_setting("enabled") is True
+    return bool(token), loaded, on_disk
+
+
 def cmd_status(ctx, args):
     token = _saved_token()
-    enabled = bool(ctx.get_config("enabled", False)) if ctx is not None else None
+    _, loaded, on_disk = readiness(ctx)
+    enabled = bool(loaded or on_disk)
     transport = approval_transport()
     _say(f"Notify key:  {'saved' if token else 'missing - run `hermes notify setup`'}")
     _say(f"Plugin on:   {'yes' if enabled else 'no - run `hermes notify setup`'}")
+    stale = loaded is not None and loaded != on_disk
+    if stale:
+        _say("Config:      loaded settings differ from config.yaml - restart Hermes and the gateway")
     _say("Approvals:   " + ("phone (Notify)" if transport == "notify" else
                             "unknown" if transport is None else f"{transport} - `hermes notify approvals on` to use your phone"))
     if token:
         phones = devices(token)
         _say(f"Phones:      {', '.join(_describe(d) for d in phones) if phones else 'none - install the Notify app and sign in'}")
-    return 0 if token and enabled else 1
+    _say()
+    _say("Running Hermes sessions pick up changes on their next Notify call. If a session still says")
+    _say("Notify is not set up, restart Hermes (and `hermes gateway`, if you run one), then ask it to")
+    _say("call notify_status: `lastConfigError` names any configuration failure.")
+    return 0 if token and enabled and not stale else 1
 
 
 def cmd_test(ctx, args):

@@ -1,6 +1,6 @@
 manifest_version: 2
 name: hermes-notify
-version: "0.2.2"
+version: "0.2.3"
 description: Hermes Pocket release workspaces, rich updates, replies and exact phone approvals.
 author: Preetham Kyanam
 license: MIT
@@ -54,7 +54,7 @@ config_schema:
   allow_reply_injection:
     type: bool
     default: false
-    description: Permit explicit same-session reply injection, subject to Hermes authorization.
+    description: Permit explicit same-session injection of phone answers (approval, yes_no and reply questions), subject to Hermes authorization.
 provides_tools:
   - notify_release
   - notify_publish_app

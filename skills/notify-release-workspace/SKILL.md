@@ -1,7 +1,7 @@
 ---
 name: notify-release-workspace
 description: Manage releases, phone approvals, and replies with Notify.
-version: 0.2.2
+version: 0.2.3
 author: Preetham Kyanam (pkyanam)
 license: MIT
 ---
@@ -40,7 +40,7 @@ This requires the user's existing Hermes model configuration. It is a manual usa
 | `notify_publish_app` | Publish the supplied workspace template or register an existing HTTPS App. |
 | `notify_send` | Send an authorized milestone to the project's inbox. |
 | `notify_ask` | Ask a business question or request text input. |
-| `notify_replies` | Retrieve replies attributed to the original run and session. |
+| `notify_replies` | Collect phone answers to `notify_ask` (required when `notify_ask` returns `mustPoll: true`) and replies for your release. |
 
 ## Procedure
 
@@ -60,6 +60,8 @@ This requires the user's existing Hermes model configuration. It is a manual usa
 - Provider acceptance is not proof the phone displayed an update. Live Activity support and delivery must be checked on the actual phone.
 - Report only App or artifact links returned by tools. If state contains an App ID without a URL, direct the user to its Notify notification.
 - Cron, gateway and other unattended runs must respect host policy and bounded timeouts. A missing reply is not consent.
+- `notify_ask` returns `mustPoll: true` while the answer is pending. Nothing pushes the answer to you unless the operator set up inbound webhooks: call `notify_replies` for that project before you finish, and check `pendingQuestions` in `notify_status`.
+- "Notify is not turned on in this Hermes process" while `hermes notify status` says the plugin is on means this process is stale. Check `lastConfigError` in `notify_status`, then ask the user to restart Hermes (and the gateway, if one runs). Do not ask them to run setup again.
 
 ## Verification
 

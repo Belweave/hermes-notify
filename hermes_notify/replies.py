@@ -4,7 +4,7 @@ import json
 import time
 
 from .client import NotifyError, identifier
-from .workspace import digest, now, notify_text, text
+from .workspace import TERMINAL, digest, now, notify_text, slug, text
 
 
 class Replies:
@@ -39,8 +39,13 @@ class Replies:
         if q["status"] == "pending" and wait:
             result = self.api.wait(iid, wait, min(30, wait + 2))
             self._settle_question(q, result.get("interaction", {}))
-        return {"interactionId": iid, "kind": kind, "status": q["status"], "response": q.get("response"),
-                "businessDecisionOnly": True, "delivery": delivery, "stale": q.get("stale", False)}
+        out = {"interactionId": iid, "kind": kind, "status": q["status"], "response": q.get("response"),
+               "businessDecisionOnly": True, "delivery": delivery, "stale": q.get("stale", False),
+               "mustPoll": q["status"] == "pending"}
+        if q["status"] == "pending":
+            out["next"] = ("The answer is not here yet. You must call notify_replies (same project) to collect it; "
+                           "nothing will deliver it to you automatically.")
+        return out
 
     @staticmethod
     def _validate_question(interaction, *, body, iid=None, action_digest=None):
@@ -174,29 +179,56 @@ class Replies:
                 self.journal.put("event", event["id"], event)
 
     def replies(self, args, session):
-        run = self._session_run(args, session)
-        project, rid = run["workspace"]["project"], run["workspace"]["runId"]
+        try:
+            run = self._run(args, session)
+        except NotifyError as exc:
+            if exc.status != 403 or args.get("run_id"):
+                raise
+            # No run of our own. Answers to plain questions are readable from any session of this
+            # profile (they are never trusted as instructions); a full release owned by another
+            # session stays private to it.
+            project = slug(args.get("project"))
+            current = self.journal.get("run", self.journal.get("project", project, {}).get("runId", ""))
+            if current and current["workspace"]["status"] not in TERMINAL and not current.get("auto"):
+                raise
+            run = None
+        project = run["workspace"]["project"] if run else slug(args.get("project"))
+        rid = run["workspace"]["runId"] if run else None
         mapping = self.journal.get("project", project, {})
         errors = []
-        if mapping.get("hosted"):
+        if run and mapping.get("hosted"):
             for collect in (lambda: self._collect_worker_replies(run), self._collect_events):
                 try:
                     collect()
                 except NotifyError as exc:
                     errors.append(exc.public())
-        for q in [q for q in self.journal.all("question") if q["runId"] == rid and q["status"] == "pending"][:20]:
+
+        def question(row):
+            # Answers to notify_ask questions; release workspace replies stay bound to their run.
+            return "body" in row or row.get("source") == "Notify interaction"
+
+        def ours(row):
+            if rid is None:
+                return row["project"] == project and question(row)
+            return row["runId"] == rid or (row["project"] == project and question(row) and session.matches(row))
+
+        for q in [q for q in self.journal.all("question") if ours(q) and q["status"] == "pending"][:20]:
             try:
                 self._settle_question(q, self.api.get_interaction(q["id"]).get("interaction", {}))
             except NotifyError as exc:
                 errors.append(exc.public())
         output = []
         for row in self.journal.all("reply"):
-            if row["runId"] != rid or not session.matches(row) or row["returned"]:
+            if not ours(row) or row["returned"]:
                 continue
-            row["stale"] = row["stale"] or mapping.get("runId") != rid
+            if rid is not None and row["runId"] == rid and not session.matches(row):
+                continue
+            row["stale"] = row["stale"] or mapping.get("runId") != row["runId"]
             attributed = {k: row[k] for k in ("id", "source", "project", "runId", "kind", "status", "text", "createdAt", "stale")}
             attributed["trustedAsInstruction"] = False
-            if args.get("inject") is True and self.settings.get("allow_reply_injection") is True and self.inject and session.key and session.key == row["sessionKey"] and not row["stale"] and row["kind"] == "reply":
+            if not session.matches(row):
+                attributed["askedByAnotherSession"] = True
+            if args.get("inject") is True and self.settings.get("allow_reply_injection") is True and self.inject and session.key and session.key == row["sessionKey"] and not row["stale"]:
                 # Record before crossing the public boundary: uncertain acceptance cannot replay.
                 if not row.get("injectionAttempted"):
                     row["injectionAttempted"] = True
@@ -211,4 +243,5 @@ class Replies:
             output.append(attributed)
             if len(output) >= 50:
                 break
-        return {"replies": output, "errors": errors}
+        return {"replies": output, "errors": errors, "pendingQuestions": [
+            q for q in self.pending_questions() if q["project"] == project]}

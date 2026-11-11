@@ -3,11 +3,12 @@
 
 def register(ctx):
     import json
+    import logging
     import os
 
     if not hasattr(ctx, "register_approval_transport"):
         raise RuntimeError("This Hermes build lacks the public approval transport API")
-    from .hermes_notify.runtime import SETTINGS, Runtime, resolve_secret
+    from .hermes_notify.runtime import SETTINGS, Runtime, profile_setting, resolve_secret
     from .hermes_notify.tools import SCHEMAS, calling_session
 
     if hasattr(ctx, "register_cli_command"):
@@ -22,8 +23,15 @@ def register(ctx):
     # tool call and in the pre-approval hook. A load-time snapshot alone left a long-running
     # gateway/TUI "not set up" after `hermes notify setup`. Approval workers have no profile
     # context, so they use the values from the most recent refresh instead of reading secrets.
+    def enabled_setting():
+        if ctx.get_config("enabled", False) is True:
+            return True
+        # A context loaded before `hermes notify setup` wrote config.yaml can keep answering from
+        # its load-time view. The profile's config file on disk is the source of truth.
+        return profile_setting("enabled") is True
+
     def resolved():
-        enabled = ctx.get_config("enabled", False) is True
+        enabled = enabled_setting()
         return {
             "enabled": enabled,
             "settings": {key: ctx.get_config(key, default) for key, default in SETTINGS.items()},
@@ -36,7 +44,11 @@ def register(ctx):
     state = getattr(ctx, "state", None)
     runtime = None
     if state is not None:
-        initial = resolved()
+        try:
+            initial = resolved()
+        except Exception as exc:
+            initial = {"enabled": False, "settings": {}, "token": "", "publish_token": ""}
+            logging.getLogger("hermes_notify").warning("Notify configuration unavailable at load: %s", type(exc).__name__)
         runtime = Runtime(state.data_dir, inject=getattr(ctx, "inject_message", None), **initial)
 
     def refresh():
@@ -44,9 +56,10 @@ def register(ctx):
             return
         try:
             runtime.configure(**resolved())
-        except Exception:
-            # Keep the last good configuration; never surface secret-resolution details.
-            pass
+        except Exception as exc:
+            # Keep the last good configuration. Record and log only the exception class, never
+            # its message: it could carry secret-resolution details.
+            runtime.config_error(type(exc).__name__)
 
     # Recording/catalog contexts intentionally have no state. They still see every registration.
     ctx.on_unload(runtime.close if runtime else lambda: None)
