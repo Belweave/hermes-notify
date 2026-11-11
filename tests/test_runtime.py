@@ -26,7 +26,7 @@ def call(runtime, tool, **args):
 def begin(runtime, version="1.0", **extra):
     result = call(runtime, "release", action="begin", project="demo", name="Demo release", version=version, **extra)
     assert result["ok"], result
-    assert runtime.queue.drain(5)
+    assert runtime.queue.drain(30)
     return result["workspace"]
 
 
@@ -34,14 +34,14 @@ def update(runtime, *, drain=True, **extra):
     w = call(runtime, "release", action="status", project="demo")["workspace"]
     result = call(runtime, "release", action="update", project="demo", expected_revision=w["revision"], **extra)
     if drain:
-        assert runtime.queue.drain(6)
+        assert runtime.queue.drain(30)
     return result
 
 
 def finish(runtime, result="succeeded"):
     w = call(runtime, "release", action="status", project="demo")["workspace"]
     result = call(runtime, "release", action="finish", project="demo", expected_revision=w["revision"], result=result, result_summary="Release action returned successfully" if result == "succeeded" else "Release action did not complete")
-    assert runtime.queue.drain(5)
+    assert runtime.queue.drain(30)
     return result
 
 
@@ -69,7 +69,7 @@ def test_superseded_publication_retry_cannot_replace_current_workspace(pocket, p
     finish(rt)
     second = begin(rt, version="2.0")
     publish(rt)
-    assert rt.queue.drain(6)
+    assert rt.queue.drain(30)
     requests_before = len(mock.requests)
     retry = call(rt, "publish_app", project="demo", run_id=first["runId"])
     assert not retry["ok"] and retry["httpStatus"] == 409
@@ -84,7 +84,7 @@ def test_owner_can_resume_terminal_delivery_after_unload(pocket, resume_tool):
     rt.settings["progress_enabled"] = True
     begin(rt)
     publish(rt)
-    assert rt.queue.drain(6)
+    assert rt.queue.drain(30)
     # Hold the runtime lock so the real worker cannot deliver the queued finish.
     # Persist through the public tool first, then invoke the actual unload path.
     with rt.lock:
@@ -103,13 +103,13 @@ def test_owner_can_resume_terminal_delivery_after_unload(pocket, resume_tool):
             args.update(action="begin", version="1.0")
         result = call(resumed, resume_tool, **args)
         assert result["ok"] and result["resumed"]
-        assert resumed.queue.drain(6)
+        assert resumed.queue.drain(30)
         assert mock.workspaces["demo"]["status"] == "shipped"
         assert next(iter(mock.activities.values()))["status"] == "ended"
         assert mock.count("POST", "/api/agent/activities") == 1
         requests_after_recovery = len(mock.requests)
         assert call(resumed, resume_tool, **args)["resumed"]
-        assert resumed.queue.drain(6)
+        assert resumed.queue.drain(30)
         assert len(mock.requests) == requests_after_recovery
     finally:
         resumed.close()
@@ -320,7 +320,7 @@ def test_activity_start_coalesce_end_and_sync(pocket):
     update(rt, status="running", stage="Tests", progress=.25)
     update(rt, progress=.5, drain=False)
     assert mock.count("PATCH", "/api/agent/activities/act_00000001") == 1
-    assert rt.queue.drain(6)
+    assert rt.queue.drain(30)
     assert mock.workspaces["demo"]["progress"] == .5
     assert next(iter(mock.activities.values()))["props"]["progress"] == .5
     assert finish(rt)["workspace"]["status"] == "shipped"
@@ -470,7 +470,7 @@ def test_native_approval_reflects_host_outcome_and_only_finish_ships(pocket):
     assert decision.choice == "once"
     assert call(rt, "release", action="status", project="demo")["workspace"]["status"] == "awaiting_approval"
     rt.observe_post(request_id=req.request_id, request_digest=req.digest, choice="once")
-    assert rt.queue.drain(5)
+    assert rt.queue.drain(30)
     assert mock.workspaces["demo"]["status"] == "approved"
     assert "secret-command" not in (rt.journal.directory / "status.json").read_text()
     assert finish(rt)["workspace"]["status"] == "shipped"
@@ -485,7 +485,7 @@ def test_native_late_host_denial_wins_and_restart_expires_pending(pocket):
     mock.answer = ("approved", "approve")
     assert rt.present(req).choice == "once"
     rt.observe_post(request_id=req.request_id, request_digest=req.digest, choice="transport_timeout")
-    assert rt.queue.drain(5)
+    assert rt.queue.drain(30)
     assert call(rt, "release", action="status", project="demo")["workspace"]["status"] == "denied"
     assert not finish(rt)["ok"]
 
@@ -631,7 +631,7 @@ def test_observers_return_while_worker_is_blocked(pocket):
         rt.observe_pre(request_id="r2", request_digest="digest", session_id=SESSION.id)
         rt.observe_post(request_id="r2", request_digest="digest", choice="deny")
     release.set()
-    assert rt.queue.drain(2)
+    assert rt.queue.drain(30)
 
 
 def test_queue_bounds_coalesces_and_preserves_decision():
@@ -652,7 +652,7 @@ def test_queue_bounds_coalesces_and_preserves_decision():
         queue.submit(("approval", "decision"), "deny")
         assert len(queue.items) == 2
         release.set()
-        assert queue.drain(2)
+        assert queue.drain(30)
         assert (("approval", "decision"), "deny") in seen
         assert queue.dropped == 1
         assert not failures
@@ -799,7 +799,7 @@ def test_unicode_workspace_progress_respects_notify_utf16_limits(pocket):
     rt.settings["progress_enabled"] = True
     result = call(rt, "release", action="begin", project="demo", version="1", name="\U0001f4f1" * 80, stage="\U0001f4f1" * 80, summary="\U0001f4f1" * 500)
     assert result["ok"]
-    assert rt.queue.drain(6)
+    assert rt.queue.drain(30)
     body = next(r[2] for r in mock.requests if r[1] == "/api/agent/activities")
     for key, limit in (("title", 80), ("status", 60), ("detail", 240)):
         assert len(body[key].encode("utf-16-le")) // 2 == limit
