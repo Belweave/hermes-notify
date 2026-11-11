@@ -411,13 +411,17 @@ def _public_url_from_boat(port):
     if not exe:
         return None
     try:
-        done = subprocess.run([exe, "host", str(port), "--public", "--localhost", "--json",
+        done = subprocess.run([exe, "host", "self", str(port), "--public", "--localhost", "--json",
                                "--title", "Hermes Notify webhook"],
                               capture_output=True, text=True, timeout=60, stdin=subprocess.DEVNULL)
     except (OSError, subprocess.SubprocessError):
         return None
-    match = re.search(r"https://[^\s\"']+", done.stdout or "")
-    return match.group(0).rstrip("/") if done.returncode == 0 and match else None
+    try:
+        url = json.loads(done.stdout).get("url", "")
+    except (ValueError, AttributeError):
+        match = re.search(r"https://[^\s\"']+", done.stdout or "")
+        url = match.group(0) if match else ""
+    return url.rstrip("/") if done.returncode == 0 and url.startswith("https://") else None
 
 
 def _create_webhook(token, url):
@@ -465,7 +469,7 @@ def cmd_webhooks(ctx, args):
         base = _public_url_from_boat(port) or ""
     if not base.startswith("https://"):
         _say("Hermes needs a public HTTPS URL that forwards to port %d on this machine." % port)
-        _say("  On a Boat sandbox:   boat host <sandbox-id> %d --public --localhost" % port)
+        _say("  On a Boat sandbox:   boat host self %d --public --localhost" % port)
         _say("  Elsewhere, e.g.:     cloudflared tunnel --url http://localhost:%d" % port)
         _say("Then run: hermes notify webhooks on --url https://<that-url>")
         return 1

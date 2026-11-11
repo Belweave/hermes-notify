@@ -49,7 +49,7 @@ Each delivery is verified (`X-Notify-Signature`, HMAC-SHA256 of `"<t>.<body>"`, 
 window) and treated only as a hint: the plugin re-reads the interaction from the Notify API before
 recording it, then injects the answer into the Hermes session that asked, labelled as untrusted
 input, never as permission. The listener binds `127.0.0.1` by default; expose it through a tunnel
-or `boat host --localhost`. `notify_status` shows `inboundWebhook.listening`. Turn it off with
+or `boat host self <port> --public --localhost`. `notify_status` shows `inboundWebhook.listening`. Turn it off with
 `hermes notify webhooks off` (deletes the Notify webhook). Without webhooks, `notify_replies`
 still works from any session of the profile.
 
