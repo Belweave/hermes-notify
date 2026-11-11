@@ -252,17 +252,16 @@ def enable_approvals(*, force=False):
     current = approval_transport()
     if current is None:
         return "unknown"
-    if current == "notify":
-        return "already"
-    if current not in ("", "builtin") and not force:
+    if current not in ("", "builtin", "notify") and not force:
         return f"other:{current}"
-    if _hermes_config("set", TRANSPORT_KEY, "notify") is None:
+    if current != "notify" and _hermes_config("set", TRANSPORT_KEY, "notify") is None:
         return "unknown"
-    # Hermes's default fallback is "deny": if Notify cannot be reached, every flagged command
-    # would be refused silently. Prefer the normal terminal prompt unless the user chose otherwise.
-    if (_hermes_config("get", FALLBACK_KEY) or "deny").strip().lower() == "deny":
+    # Hermes's default fallback denies: if Notify cannot be reached, every flagged command would
+    # be refused without a prompt. Use the normal terminal prompt instead. To refuse instead:
+    # `hermes config set security.approval.transport_fallback deny`.
+    if (_hermes_config("get", FALLBACK_KEY) or "").strip().lower() != "builtin":
         _hermes_config("set", FALLBACK_KEY, "builtin")
-    return "on"
+    return "already" if current == "notify" else "on"
 
 
 def disable_approvals():

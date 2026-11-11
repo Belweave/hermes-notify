@@ -76,10 +76,9 @@ def test_approvals_keep_a_users_choices(monkeypatch):
     other = fake_config(monkeypatch, {onboarding.TRANSPORT_KEY: "slack"})
     assert onboarding.enable_approvals() == "other:slack" and other[onboarding.TRANSPORT_KEY] == "slack"
     assert onboarding.enable_approvals(force=True) == "on" and other[onboarding.TRANSPORT_KEY] == "notify"
-    strict = fake_config(monkeypatch, {onboarding.FALLBACK_KEY: "deny-always"})
-    assert onboarding.enable_approvals() == "on" and strict[onboarding.FALLBACK_KEY] == "deny-always"
+    # Set by hand earlier (transport notify, default deny fallback): add the terminal fallback.
     on = fake_config(monkeypatch, {onboarding.TRANSPORT_KEY: "notify"})
-    assert onboarding.enable_approvals() == "already" and onboarding.FALLBACK_KEY not in on
+    assert onboarding.enable_approvals() == "already" and on[onboarding.FALLBACK_KEY] == "builtin"
     assert onboarding.disable_approvals() == "off" and on[onboarding.TRANSPORT_KEY] == "builtin"
     fake_config(monkeypatch, available=False)
     assert onboarding.enable_approvals() == "unknown"

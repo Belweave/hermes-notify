@@ -20,7 +20,7 @@ hermes notify setup
 2. **Save the key.** A scoped API key is minted for this computer, saved to the Hermes profile `.env` (`~/.hermes/.env`, or `%LOCALAPPDATA%\hermes\.env` on native Windows), and the plugin is switched on. You never copy or paste a token.
 3. **Connect your phone.** It links the Notify app ([iPhone TestFlight](https://testflight.apple.com/join/1MDYPc7a), [Android](https://github.com/Belweave/notify/tree/main/apps/android)) and waits until your phone registers.
 4. **Test.** It sends "Hermes is connected" to your phone.
-5. **Approvals.** Once a phone is connected, Hermes's command approvals go to your phone as Approve / Deny (`security.approval.transport: notify`). If Notify can't be reached, Hermes asks in the terminal as usual (`security.approval.transport_fallback: builtin`). A transport or fallback you chose yourself is left alone. Skip this with `--no-approvals`.
+5. **Approvals.** Once a phone is connected, Hermes's command approvals go to your phone as Approve / Deny (`security.approval.transport: notify`). If Notify can't be reached, Hermes asks in the terminal as usual (`security.approval.transport_fallback: builtin`; set it to `deny` to refuse instead). Another approval transport you selected is left alone. Skip this step with `--no-approvals`.
 
 It works right away, including in Hermes sessions that are already open. Say, for example, "Send me a Notify message when the tests finish" or "Ask me on my phone whether to deploy and wait for my answer."
 
