@@ -1,0 +1,8 @@
+# Development and test tools only. The plugin itself has no dependencies.
+pytest==9.2.0
+ruamel.yaml==0.19.1
+python-dotenv==1.2.4
+rich==15.0.0
+platformdirs==4.14.5
+packaging==26.3
+jsonschema==4.26.0

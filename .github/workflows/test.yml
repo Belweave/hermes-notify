@@ -20,6 +20,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
-      - run: uv sync --only-group dev
-      - run: uv run python scripts/fetch_hermes.py
-      - run: uv run python -m pytest
+      - run: uv venv --python 3.12
+      - run: uv pip install -r requirements-dev.txt
+      - name: Test
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" = "Windows" ]; then PY=.venv/Scripts/python; else PY=.venv/bin/python; fi
+          $PY scripts/fetch_hermes.py
+          $PY -m pytest

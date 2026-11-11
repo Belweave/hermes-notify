@@ -54,7 +54,7 @@ Hermes warns about the local `file://` source. No remote is needed for that sour
 Requires Python 3.11+, `uv`, and Node 22.23+ for Worker development. The harness installs no normal Hermes profile and reads no real credential.
 
 ```sh
-uv sync --only-group dev
+uv venv && uv pip install -r requirements-dev.txt
 .venv/bin/python scripts/fetch_hermes.py
 node worker/scripts/isolated.mjs ci
 node worker/scripts/isolated.mjs build

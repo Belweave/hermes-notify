@@ -32,7 +32,7 @@ The harness uses synthetic tokens, blocks non-loopback Python connections, block
 From the repository root:
 
 ```sh
-uv sync --only-group dev
+uv venv && uv pip install -r requirements-dev.txt
 .venv/bin/python scripts/fetch_hermes.py
 .venv/bin/python -m pytest
 node worker/scripts/isolated.mjs ci

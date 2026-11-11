@@ -3,10 +3,10 @@ name = "hermes-notify"
 version = "0.2.1"
 description = "Hermes Pocket release workspaces, progress and phone decisions through Notify"
 requires-python = ">=3.11"
+# No runtime dependencies: Hermes installs nothing and asks no consent.
+# Dev/test tools live in requirements-dev.txt.
 dependencies = []
 
-[dependency-groups]
-dev = ["pytest==9.2.0", "ruamel.yaml==0.19.1", "python-dotenv==1.2.4", "rich==15.0.0", "platformdirs==4.14.5", "packaging==26.3", "jsonschema==4.26.0"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

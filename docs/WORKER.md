@@ -9,7 +9,7 @@ Source is in [`worker/src`](../worker/src), the official browser adapter is [`ap
 Run these from the repository root:
 
 ```sh
-uv sync --only-group dev
+uv venv && uv pip install -r requirements-dev.txt
 node worker/scripts/isolated.mjs ci
 node worker/scripts/isolated.mjs check
 node worker/scripts/isolated.mjs test
