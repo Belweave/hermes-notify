@@ -203,7 +203,7 @@ def test_plugin_captures_profile_secret_before_transport_worker(tmp_path, monkey
 def test_real_hermes_loader_http_gate_and_unload(answer):
     args = ["--disabled"] if answer == "disabled" else ["--answer", answer]
     done = subprocess.run([sys.executable, str(ROOT / "scripts/spike.py"), *args],
-                          cwd=ROOT, capture_output=True, text=True, timeout=20, check=True)
+                          cwd=ROOT, capture_output=True, text=True, timeout=180, check=True)  # cold Hermes import is slow on CI runners
     report = json.loads(done.stdout)
     assert report["plugin_loaded"] and report["transport_unloaded"]
     assert report["hermes_approved"] == (answer == "approve")

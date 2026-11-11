@@ -138,7 +138,7 @@ def test_all_notify_runtime_write_shapes_match_saved_openapi(pocket):
 def test_real_hermes_loader_dispatches_six_tools_and_unloads():
     import subprocess
     done = subprocess.run([sys.executable, str(ROOT / "tests/loader_runtime_probe.py")],
-                          cwd=ROOT, capture_output=True, text=True, timeout=20, check=True)
+                          cwd=ROOT, capture_output=True, text=True, timeout=180, check=True)  # cold Hermes import is slow on CI runners
     assert json.loads(done.stdout) == {"registered": 6, "dispatched": 6, "unloaded": True}
 
 
