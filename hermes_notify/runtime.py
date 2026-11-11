@@ -116,7 +116,10 @@ class Runtime(Publisher, Progress, Replies):
             raise NotifyError("Another session owns this project's active release; use a different project name", status=409)
         self.release({"action": "begin", "project": project, "version": "updates", "name": project,
                       "stage": "Updates"}, session)
-        return self._run({"project": project}, session)
+        run = self._run({"project": project}, session)
+        run["auto"] = True  # A later real release from this session may replace it.
+        self.journal.put("run", run["workspace"]["runId"], run)
+        return run
 
     def _save_run(self, run):
         validate(run["workspace"])
@@ -176,7 +179,8 @@ class Runtime(Publisher, Progress, Replies):
                 return {"workspace": existing["workspace"], "resumed": True}
             mapping = self.journal.get("project", project, {})
             previous = self.journal.get("run", mapping.get("runId", ""))
-            if previous and previous["workspace"]["status"] not in TERMINAL:
+            replaceable = previous and previous.get("auto") and session.matches(previous)
+            if previous and previous["workspace"]["status"] not in TERMINAL and not replaceable:
                 raise NotifyError("Finish the current project run before starting another", status=409)
             w = {"schemaVersion": 1, "project": project, "runId": rid, "revision": 1,
                  "name": name, "version": version, "status": "preparing", "stage": "Preparing",

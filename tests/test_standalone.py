@@ -43,3 +43,17 @@ def test_project_names_are_normalized():
     assert normalize_project("notify_send", {})["project"] == "hermes"
     assert normalize_project("notify_send", {"project": "My App!"})["project"] == "my-app"
     assert normalize_project("notify_status", {}) == {}
+
+
+def test_real_release_replaces_own_updates_run(tmp_path):
+    mock = PocketMock()
+    with mock.serve() as url:
+        rt = Runtime(tmp_path, enabled=True, token="dummy", settings={}, test_url=url + "/api/agent")
+        try:
+            assert rt.call("notify_send", {"body": "hi", "project": "demo"}, SESSION)["ok"]
+            begun = rt.call("notify_release", {"action": "begin", "project": "demo", "version": "2.0"}, SESSION)
+            assert begun["ok"] and begun["workspace"]["version"] == "2.0", begun
+            assert rt.call("notify_send", {"body": "on the release", "project": "demo"}, SESSION)["ok"]
+            assert rt.journal.get("project", "demo")["runId"] == begun["workspace"]["runId"]
+        finally:
+            rt.close()
