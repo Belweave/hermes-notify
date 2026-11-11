@@ -6,7 +6,7 @@ import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path[:0] = [str(ROOT), str(ROOT / ".local/hermes-source")]
+sys.path[:0] = [str(ROOT), os.environ.get("HERMES_SOURCE") or str(ROOT / ".local/hermes-source")]
 
 
 def main():

@@ -83,7 +83,9 @@ def test_enabled_registration_captures_both_secrets_and_caller_context(tmp_path,
         load_plugin().register(ctx)
         try:
             assert reads == ["NOTIFY_API_TOKEN", "HERMES_NOTIFY_PUBLISH_TOKEN"]
-            monkeypatch.setattr(secret_scope, "get_secret", lambda *_: pytest.fail("Secrets must be captured before worker threads"))
+            # Tool calls re-resolve in the caller's own context, so a key saved after load is
+            # picked up; they read only the declared secrets.
+            reads.clear()
             with scoped_session_key(SESSION.key):
                 result = json.loads(registered["notify_release"]["handler"]({"action": "begin", "project": "test", "version": "1"}, session_id=SESSION.id))
                 assert result["ok"]
@@ -94,6 +96,7 @@ def test_enabled_registration_captures_both_secrets_and_caller_context(tmp_path,
             with scoped_session_key("other"):
                 result = json.loads(registered["notify_send"]["handler"]({"project": "test", "body": "Wrong"}, session_id="other"))
                 assert not result["ok"]
+            assert reads and set(reads) == {"NOTIFY_API_TOKEN", "HERMES_NOTIFY_PUBLISH_TOKEN"}
         finally:
             for stop in cleanup:
                 stop()
@@ -153,3 +156,36 @@ def test_calling_session_uses_documented_gateway_accessor(monkeypatch):
     session = calling_session({"session_id": "host-session"})
     assert session.key == "public-gateway-route" and session.id == "host-session"
     assert reads == [("HERMES_SESSION_KEY", "")]
+
+
+def test_setup_after_load_works_without_restart(tmp_path, monkeypatch):
+    """Regression (0.2.1): a gateway/TUI that loaded the plugin before `hermes notify setup`
+    stayed "not set up" because enabled and the key were read once at load."""
+    from agent import secret_scope
+    home = tmp_path / "home"
+    home.mkdir()
+    monkeypatch.setenv("HERMES_HOME", str(home))
+    monkeypatch.delenv("NOTIFY_API_TOKEN", raising=False)
+    config, registered, cleanup = {"enabled": False}, {}, []
+    with PocketMock().serve() as url:
+        monkeypatch.setenv("HERMES_NOTIFY_TEST_URL", url + "/api/agent")
+        ctx = SimpleNamespace(state=SimpleNamespace(data_dir=tmp_path / "data"),
+                              get_config=lambda k, d=None: config.get(k, d),
+                              register_tool=lambda **kw: registered.update({kw["name"]: kw}), register_hook=lambda *_: None,
+                              register_approval_transport=lambda *_: None, on_unload=cleanup.append)
+        load_plugin().register(ctx)
+        try:
+            send = registered["notify_send"]["handler"]
+            before = json.loads(send({"body": "hi"}, session_id="s1"))
+            assert not before["ok"] and "hermes notify setup" in before["error"]
+            # What `hermes notify setup` does from another process: save the key, turn it on.
+            (home / ".env").write_text("NOTIFY_API_TOKEN=dummy\n")
+            secret_scope.invalidate_env_file_cache(home / ".env")
+            config["enabled"] = True
+            after = json.loads(send({"body": "hi"}, session_id="s1"))
+            assert after["ok"], after
+            status = json.loads(registered["notify_status"]["handler"]({}, session_id="s1"))
+            assert status["configured"] and not [d for d in status["deliveries"] if d["state"] == "not_configured"]
+        finally:
+            for stop in cleanup:
+                stop()

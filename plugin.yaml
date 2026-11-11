@@ -1,6 +1,6 @@
 manifest_version: 2
 name: hermes-notify
-version: "0.2.1"
+version: "0.2.2"
 description: Hermes Pocket release workspaces, rich updates, replies and exact phone approvals.
 author: Preetham Kyanam
 license: MIT
@@ -18,7 +18,7 @@ config_schema:
   enabled:
     type: bool
     default: false
-    description: Enable profile-scoped Notify operations. Reload after configuration changes.
+    description: Enable profile-scoped Notify operations. `hermes notify setup` turns this on; changes apply without a restart.
   timeout_seconds:
     type: int
     default: 120

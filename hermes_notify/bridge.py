@@ -12,6 +12,14 @@ logger = logging.getLogger(__name__)
 _slots = threading.BoundedSemaphore(2)
 
 
+class TransportUnavailable(RuntimeError):
+    """Notify cannot present this approval. Raised (not a deny) so Hermes applies the
+    operator's security.approval.transport_fallback, e.g. the normal terminal prompt."""
+
+    def __init__(self):
+        super().__init__("Notify approval transport is unavailable")
+
+
 class ApprovalBridge:
     def __init__(self, client, ledger, *, timeout_seconds=120, device_id="", is_cancelled=lambda: False, on_state=None):
         self.client = client
@@ -23,7 +31,7 @@ class ApprovalBridge:
 
     def present(self, request):
         if not _slots.acquire(blocking=False):
-            return request.respond("deny")
+            raise TransportUnavailable()
         try:
             return self._present(request)
         finally:
@@ -54,7 +62,13 @@ class ApprovalBridge:
             if self.device_id:
                 body["deviceIds"] = [self.device_id]
             # Do not retry an unknown POST result here. The key permits later reconciliation.
-            created = self.client.create(body, "hermes-" + request.request_id, min(10, self._remaining(deadline)))
+            try:
+                created = self.client.create(body, "hermes-" + request.request_id, min(10, self._remaining(deadline)))
+            except NotifyError:
+                # Nothing reached the phone, so no one has been asked yet. Let the host apply
+                # transport_fallback (for example the terminal prompt) instead of a silent deny.
+                logger.warning("Notify approval could not be created; Hermes will use its transport fallback")
+                raise TransportUnavailable() from None
             interaction = self._interaction(created)
             interaction_id = interaction["id"]
             digest = interaction["actionDigest"]

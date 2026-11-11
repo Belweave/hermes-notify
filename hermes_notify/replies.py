@@ -17,7 +17,7 @@ class Replies:
         wait = args.get("wait_seconds", 0)
         if type(expires) is not int or not 30 <= expires <= 86400 or type(wait) not in (int, float) or not 0 <= wait <= 25:
             raise NotifyError("Question expiry must be 30..86400 seconds; wait must be 0..25", status=400)
-        body = {"title": notify_text(args.get("title"), 80, "title"), "prompt": notify_text(args.get("prompt"), 2000, "prompt"),
+        body = {"title": notify_text(args.get("title") or "Hermes question", 80, "title"), "prompt": notify_text(args.get("prompt"), 2000, "prompt"),
                 "kind": kind, "presentation": "notification", "expiresInSeconds": expires}
         if self.settings.get("device_id"):
             body["deviceIds"] = [self.settings["device_id"]]

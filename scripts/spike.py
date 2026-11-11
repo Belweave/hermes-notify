@@ -79,7 +79,7 @@ def run(source, *, live=False, answer="approve", enabled=True):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--hermes-source", type=Path, default=ROOT / ".local/hermes-source")
+    parser.add_argument("--hermes-source", type=Path, default=Path(os.environ.get("HERMES_SOURCE") or ROOT / ".local/hermes-source"))
     parser.add_argument("--answer", choices=["approve", "deny", "timeout"], default="approve")
     parser.add_argument("--live", action="store_true", help="Send ONE real phone approval using NOTIFY_API_TOKEN. Requires user authorization.")
     parser.add_argument("--disabled", action="store_true", help="Verify the default-off plugin sends nothing")

@@ -9,9 +9,10 @@ from types import SimpleNamespace
 
 import pytest
 from hermes_cli.approval_transport import ApprovalRequest, invoke_approval_transport
-from hermes_notify.bridge import ApprovalBridge
+from hermes_notify.bridge import ApprovalBridge, TransportUnavailable
 from hermes_notify.client import NotifyClient, NotifyError, TEST_TOKEN
 from hermes_notify.ledger import Ledger
+from hermes_notify.runtime import Runtime
 from scripts.mock_notify import MockNotify
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -94,10 +95,25 @@ def test_transport_error_does_not_retry_or_leak(tmp_path, caplog):
             raise NotifyError("pretend-secret")
     api, req = Unavailable(), request()
     bridge = ApprovalBridge(api, Ledger(tmp_path / "db"))
-    assert bridge.present(req).choice == "deny"
+    # Nothing reached the phone: raise so the host applies transport_fallback (terminal prompt
+    # when the operator opted in, otherwise its own deny). The exception carries no details.
+    with pytest.raises(TransportUnavailable) as raised:
+        bridge.present(req)
+    assert "pretend-secret" not in str(raised.value)
+    # The request ID is claimed once; a retry of the same request never sends again.
     assert bridge.present(req).choice == "deny"
     assert api.creates == 1
     assert "pretend-secret" not in caplog.text
+
+
+def test_host_falls_back_when_transport_is_unavailable(tmp_path):
+    from hermes_cli.approval_transport import invoke_approval_transport
+    rt = Runtime(tmp_path, enabled=True, token="", settings={})
+    try:
+        result = invoke_approval_transport(rt.present, request(), timeout_seconds=2)
+        assert result.failure == "error" and result.choice == "deny"
+    finally:
+        rt.close()
 
 
 def test_pending_timeout_never_approves_or_sends_again(tmp_path):

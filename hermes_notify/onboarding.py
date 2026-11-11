@@ -4,6 +4,7 @@
 2. Save the scoped API key to this Hermes profile and turn the plugin on.
 3. Wait for the Notify phone app to register, with install links.
 4. Send a test notification.
+5. Send Hermes command approvals to the phone, with the terminal prompt as fallback.
 
 Standard library only, so it behaves the same on macOS, Linux and Windows,
 including over SSH where no browser can open.
@@ -12,7 +13,9 @@ including over SSH where no browser can open.
 import json
 import os
 import platform
+import shutil
 import socket
+import subprocess
 import sys
 import time
 import webbrowser
@@ -29,6 +32,8 @@ KEY_LIFETIME_SECONDS = 90 * 86400
 IOS_URL = "https://testflight.apple.com/join/1MDYPc7a"
 ANDROID_URL = "https://github.com/Belweave/notify/tree/main/apps/android"
 PHONE_WAIT_SECONDS = 600
+TRANSPORT_KEY = "security.approval.transport"
+FALLBACK_KEY = "security.approval.transport_fallback"
 
 _opener = build_opener(NoRedirects())
 
@@ -144,7 +149,7 @@ def _describe(device):
 
 def wait_for_phone(token, *, wait=True):
     found = devices(token)
-    _say("Step 2 of 3 - Connect your phone")
+    _say("Step 2 of 4 - Connect your phone")
     _say()
     if found:
         for device in found:
@@ -205,10 +210,91 @@ def _save_token(token):
 
 
 def _enable(ctx):
-    if ctx is not None and hasattr(ctx, "set_config"):
-        ctx.set_config("enabled", True)
-        return True
-    return False
+    """Turn the runtime on. True when this call changed it."""
+    if ctx is None or not hasattr(ctx, "set_config"):
+        return False
+    if ctx.get_config("enabled", False) is True:
+        return False
+    ctx.set_config("enabled", True)
+    return True
+
+
+def _hermes_config(*args):
+    """Run Hermes's public `hermes config` command for this profile. None when unavailable.
+
+    Plugin settings (ctx.set_config) cannot reach security.*, and Hermes's config writer is
+    not a public plugin API, so setup uses the same documented command a user would type.
+    """
+    exe = shutil.which("hermes")
+    if not exe:
+        return None
+    try:
+        done = subprocess.run([exe, "config", *args], capture_output=True, text=True, timeout=60,
+                              stdin=subprocess.DEVNULL)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return done.stdout.strip() if done.returncode == 0 else None
+
+
+def approval_transport():
+    value = _hermes_config("get", TRANSPORT_KEY)
+    return value.strip().lower() if value is not None else None
+
+
+def _say_approval_snippet():
+    _say("    hermes config set security.approval.transport notify")
+    _say("    hermes config set security.approval.transport_fallback builtin")
+    _say()
+
+
+def enable_approvals(*, force=False):
+    """Route Hermes command approvals to Notify. Returns a short status word."""
+    current = approval_transport()
+    if current is None:
+        return "unknown"
+    if current == "notify":
+        return "already"
+    if current not in ("", "builtin") and not force:
+        return f"other:{current}"
+    if _hermes_config("set", TRANSPORT_KEY, "notify") is None:
+        return "unknown"
+    # Hermes's default fallback is "deny": if Notify cannot be reached, every flagged command
+    # would be refused silently. Prefer the normal terminal prompt unless the user chose otherwise.
+    if (_hermes_config("get", FALLBACK_KEY) or "deny").strip().lower() == "deny":
+        _hermes_config("set", FALLBACK_KEY, "builtin")
+    return "on"
+
+
+def disable_approvals():
+    return "off" if _hermes_config("set", TRANSPORT_KEY, "builtin") is not None else "unknown"
+
+
+def _setup_approvals(phones, *, skip=False):
+    _say("Step 4 of 4 - Approve Hermes commands from your phone")
+    _say()
+    if skip:
+        _say("  Skipped (--no-approvals). Turn it on later with `hermes notify approvals on`.")
+        _say()
+        return
+    if not phones:
+        _say("  Waiting for a phone first. When the app is signed in, run `hermes notify approvals on`.")
+        _say()
+        return
+    result = enable_approvals()
+    if result == "already":
+        _say("  Already on: approval prompts go to your phone.")
+    elif result == "on":
+        _say("  On. When Hermes needs permission for a command, your phone gets Approve / Deny.")
+        _say("  If Notify can't be reached, Hermes asks in the terminal as usual.")
+        _say("  Turn off any time with `hermes notify approvals off`.")
+    elif result.startswith("other:"):
+        _say(f"  Another approval transport is selected ({result[6:]}); leaving it alone.")
+        _say("  Use `hermes notify approvals on --force` to switch to your phone.")
+    else:
+        _say("  Could not update the Hermes config automatically. Run:")
+        _say_approval_snippet()
+        return
+    _say()
 
 
 def cmd_setup(ctx, args):
@@ -220,7 +306,7 @@ def cmd_setup(ctx, args):
     if token:
         try:
             devices(token)
-            _say("Step 1 of 3 - Notify key already saved for this profile. (Use --reauth to replace it.)")
+            _say("Step 1 of 4 - Notify key already saved for this profile. (Use --reauth to replace it.)")
             _say()
         except SetupError:
             token = ""
@@ -230,27 +316,23 @@ def cmd_setup(ctx, args):
         _say("  Signed in. API key saved to this Hermes profile.")
         _say()
     if _enable(ctx):
-        _say("  Plugin turned on (plugins.entries.hermes-notify.settings.enabled: true).")
+        _say("  Plugin turned on for this profile.")
         _say()
     phones = wait_for_phone(token, wait=not getattr(args, "no_wait", False))
-    _say("Step 3 of 3 - Test notification")
+    _say("Step 3 of 4 - Test notification")
     _say()
     accepted, queued = send_test(token)
     if phones and (accepted or queued):
-        _say("  Sent. Check your phone for \"Hermes is connected\".")
+        _say("  Notify accepted it. Check your phone for \"Hermes is connected\".")
     elif phones:
-        _say("  Notify accepted the request but no device took it yet; check notification permissions.")
+        _say("  Notify took the request but no phone accepted it; check notification permissions.")
     else:
         _say("  Saved to your Notify inbox. It will show on your phone once the app is signed in.")
     _say()
-    _say("All set. Start a new Hermes session and try:")
+    _setup_approvals(phones, skip=getattr(args, "no_approvals", False))
+    _say("All set. It works in open Hermes sessions right away. Try:")
     _say("  \"Send me a Notify message when you're done.\"")
     _say("  \"Ask me on my phone whether to deploy, and wait for my answer.\"")
-    _say()
-    _say("Optional: approve Hermes commands from your phone by adding to config.yaml:")
-    _say("  security:")
-    _say("    approval:")
-    _say("      transport: notify")
     _say()
     return 0
 
@@ -258,8 +340,11 @@ def cmd_setup(ctx, args):
 def cmd_status(ctx, args):
     token = _saved_token()
     enabled = bool(ctx.get_config("enabled", False)) if ctx is not None else None
+    transport = approval_transport()
     _say(f"Notify key:  {'saved' if token else 'missing - run `hermes notify setup`'}")
     _say(f"Plugin on:   {'yes' if enabled else 'no - run `hermes notify setup`'}")
+    _say("Approvals:   " + ("phone (Notify)" if transport == "notify" else
+                            "unknown" if transport is None else f"{transport} - `hermes notify approvals on` to use your phone"))
     if token:
         phones = devices(token)
         _say(f"Phones:      {', '.join(_describe(d) for d in phones) if phones else 'none - install the Notify app and sign in'}")
@@ -271,9 +356,27 @@ def cmd_test(ctx, args):
     if not token:
         raise SetupError("No Notify key yet. Run `hermes notify setup` first.")
     accepted, queued = send_test(token)
-    _say("Test notification sent." if accepted or queued else
-         "Notify accepted the request, but no phone is registered yet. Install the app and sign in.")
+    _say("Notify accepted the test notification." if accepted or queued else
+         "Notify took the request, but no phone is registered yet. Install the app and sign in.")
     return 0
+
+
+def cmd_approvals(ctx, args):
+    if getattr(args, "state", "on") == "off":
+        result = disable_approvals()
+        _say("Approvals: back to the terminal prompt." if result == "off" else
+             "Could not update the config. Run: hermes config set security.approval.transport builtin")
+        return 0 if result == "off" else 1
+    result = enable_approvals(force=getattr(args, "force", False))
+    if result in ("on", "already"):
+        _say("Approvals: your phone (Notify). The terminal prompt is the fallback if Notify can't be reached.")
+        return 0
+    if result.startswith("other:"):
+        _say(f"Another approval transport is selected ({result[6:]}). Use --force to switch.")
+        return 1
+    _say("Could not update the config automatically. Run:")
+    _say_approval_snippet()
+    return 1
 
 
 def register_cli(ctx):
@@ -284,13 +387,18 @@ def register_cli(ctx):
             p.add_argument("--reauth", action="store_true", help="Sign in again and replace the saved key")
             p.add_argument("--no-browser", action="store_true", help="Print the sign-in link without opening a browser")
             p.add_argument("--no-wait", action="store_true", help="Do not wait for the phone app to register")
+            p.add_argument("--no-approvals", action="store_true",
+                           help="Do not send Hermes command approvals to the phone")
         subs.add_parser("status", help="Show whether Notify is configured and which phones are connected")
         subs.add_parser("test", help="Send a test notification to your phone")
+        approvals = subs.add_parser("approvals", help="Send Hermes command approvals to your phone (on) or the terminal (off)")
+        approvals.add_argument("state", choices=["on", "off"])
+        approvals.add_argument("--force", action="store_true", help="Replace another selected approval transport")
         parser.set_defaults(func=dispatch)
 
     def dispatch(args):
         command = getattr(args, "notify_command", None) or "setup"
-        handler = {"setup": cmd_setup, "status": cmd_status, "test": cmd_test}[command]
+        handler = {"setup": cmd_setup, "status": cmd_status, "test": cmd_test, "approvals": cmd_approvals}[command]
         try:
             return handler(ctx, args)
         except SetupError as exc:

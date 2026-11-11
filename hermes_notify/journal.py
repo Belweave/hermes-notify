@@ -104,6 +104,10 @@ class Journal:
             db.execute("INSERT INTO records VALUES(?,?,?,?)", (kind, key, raw, time.time()))
         return value
 
+    def delete(self, kind, key):
+        with self.connect() as db:
+            db.execute("DELETE FROM records WHERE kind=? AND key=?", (kind, key))
+
     def replace_if(self, kind, key, previous, value):
         with self.connect() as db:
             db.execute("BEGIN IMMEDIATE")

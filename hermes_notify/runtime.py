@@ -6,7 +6,7 @@ import threading
 from collections import OrderedDict
 from dataclasses import dataclass
 
-from .bridge import ApprovalBridge
+from .bridge import ApprovalBridge, TransportUnavailable
 from .client import API_BASE, NotifyClient, NotifyError, WorkerClient, https_url, identifier
 from .journal import Journal, encode
 from .ledger import Ledger
@@ -15,6 +15,41 @@ from .progress import Progress
 from .replies import Replies
 from .queue import WorkQueue
 from .workspace import EDITABLE, TERMINAL, digest, normalize_project, now, notify_text, run_id, slug, text, validate
+
+
+SETTINGS = {
+    "timeout_seconds": 120, "device_id": "", "publisher_origin": "", "worker_name": "",
+    "worker_subdomain": "", "progress_enabled": False, "progress_interval_seconds": 5,
+    "retention_days": 30, "allow_reply_injection": False,
+}
+NOT_SET_UP = "Notify is not set up yet. Ask the user to run `hermes notify setup` in a terminal"
+NO_KEY = "No Notify key is saved. Ask the user to run `hermes notify setup` in a terminal"
+
+
+def resolve_secret(name):
+    """A declared secret through Hermes's public secret API, read fresh.
+
+    get_secret honors the active profile scope. A key saved by `hermes notify setup` after this
+    process started is in the profile .env but not in os.environ, so fall back to Hermes's own
+    profile scope builder, which re-reads that profile's .env (and its secret sources).
+    """
+    import os
+    from agent import secret_scope
+    try:
+        value = secret_scope.get_secret(name, "") or ""
+    except Exception:  # UnscopedSecretError under multiplexing: no profile to read from.
+        return ""
+    if value:
+        return value
+    home = secret_scope.current_secret_scope_home()
+    if not home and not secret_scope.is_multiplex_active():
+        home = os.environ.get("HERMES_HOME")
+    if not home:
+        return ""
+    try:
+        return secret_scope.build_profile_secret_scope(home).get(name, "") or ""
+    except Exception:
+        return ""
 
 
 @dataclass(frozen=True)
@@ -35,7 +70,7 @@ class Session:
 class Runtime(Publisher, Progress, Replies):
     def __init__(self, data_dir, *, enabled=False, token="", publish_token="", settings=None,
                  test_url=None, test_worker_url=None, inject=None):
-        self.settings = settings or {}
+        self.settings = settings if settings is not None else {}
         self.enabled, self.token, self.publish_token = enabled, token, publish_token
         self.test_url, self.test_worker_url, self.inject = test_url, test_worker_url, inject
         self.stopped = threading.Event()
@@ -45,8 +80,8 @@ class Runtime(Publisher, Progress, Replies):
         self.journal = Journal(data_dir, retention_days=self.settings.get("retention_days", 30))
         self.ledger = Ledger(self.journal.directory / "approvals.sqlite3")
         self.queue = WorkQueue(self._work, self._background_failure)
-        self._notify = None
-        self._worker = None
+        self._notify = self._notify_key = None
+        self._worker = self._worker_key = None
         # Lost host requests are never resumed as permissions after restart.
         for approval in self.journal.all("approval"):
             if approval["status"] == "pending":
@@ -55,34 +90,48 @@ class Runtime(Publisher, Progress, Replies):
                 self._apply_approval(approval)
         self.snapshot()
 
+    @property
+    def configured(self):
+        return self.enabled is True and bool(self.token)
+
+    def configure(self, *, enabled, token, publish_token, settings, test_url=None, test_worker_url=None):
+        """Adopt configuration resolved in the caller's profile context (load, tool call, or
+        approval hook). Approval workers run without that context and use these values."""
+        with self.lock:
+            self.enabled, self.token, self.publish_token = enabled is True, token or "", publish_token or ""
+            self.settings, self.test_url, self.test_worker_url = settings, test_url, test_worker_url
+
     def _ready(self):
         if self.stopped.is_set():
             raise NotifyError("Hermes Pocket has unloaded")
         if not self.enabled:
-            raise NotifyError("Notify is not set up yet. Ask the user to run `hermes notify setup` in a terminal, then start a new session")
+            raise NotifyError(NOT_SET_UP, code="NOT_CONFIGURED")
 
     @property
     def api(self):
         self._ready()
-        if self._notify is None:
-            if not self.token:
-                raise NotifyError("No Notify key is saved. Ask the user to run `hermes notify setup` in a terminal, then start a new session")
-            self._notify = NotifyClient(self.token, self.test_url or API_BASE)
+        token, base = self.token, self.test_url or API_BASE
+        if not token:
+            raise NotifyError(NO_KEY, code="NOT_CONFIGURED")
+        if self._notify is None or self._notify_key != (token, base):
+            self._notify, self._notify_key = NotifyClient(token, base), (token, base)
         return self._notify
 
     @property
     def worker(self):
         self._ready()
-        if self._worker is None:
-            origin = self.settings.get("publisher_origin", "")
-            if not origin:
-                import re
-                name, subdomain = self.settings.get("worker_name", ""), self.settings.get("worker_subdomain", "")
-                if not all(isinstance(x, str) and re.fullmatch(r"[a-z0-9][a-z0-9-]{0,62}", x) for x in (name, subdomain)):
-                    raise NotifyError("Configure publisher_origin or worker_name and worker_subdomain")
-                origin = f"https://{name}.{subdomain}.workers.dev"
+        settings = self.settings
+        origin = settings.get("publisher_origin", "")
+        if not origin:
+            import re
+            name, subdomain = settings.get("worker_name", ""), settings.get("worker_subdomain", "")
+            if not all(isinstance(x, str) and re.fullmatch(r"[a-z0-9][a-z0-9-]{0,62}", x) for x in (name, subdomain)):
+                raise NotifyError("Configure publisher_origin or worker_name and worker_subdomain")
+            origin = f"https://{name}.{subdomain}.workers.dev"
+        key = (self.publish_token, origin, self.test_worker_url)
+        if self._worker is None or self._worker_key != key:
             self.publisher_origin = https_url(origin, origin=True)
-            self._worker = WorkerClient(self.publish_token, self.test_worker_url or origin)
+            self._worker, self._worker_key = WorkerClient(self.publish_token, self.test_worker_url or origin), key
         return self._worker
 
     def key(self, kind, value):
@@ -154,7 +203,8 @@ class Runtime(Publisher, Progress, Replies):
                 return {"ok": True, **result}
         except NotifyError as exc:
             try:
-                self._delivery(args.get("project", "") if isinstance(args, dict) else "", "failed", str(exc))
+                state = "not_configured" if exc.code == "NOT_CONFIGURED" else "failed"
+                self._delivery(args.get("project", "") if isinstance(args, dict) else "", state, str(exc))
             except (OSError, NotifyError):
                 pass
             return {"ok": False, **exc.public()}
@@ -310,7 +360,13 @@ class Runtime(Publisher, Progress, Replies):
         self.snapshot()
 
     def snapshot(self):
-        value = {"schemaVersion": 1, "configured": self.enabled and bool(self.token),
+        configured = self.configured
+        if configured:
+            # A "not set up" record from before `hermes notify setup` is resolved now.
+            for record in self.journal.all("delivery"):
+                if record.get("state") == "not_configured":
+                    self.journal.delete("delivery", record["project"])
+        value = {"schemaVersion": 1, "configured": configured,
                  "runs": [r["workspace"] for r in self.journal.all("run")[:10]],
                  "pending": [{"requestId": a["requestId"], "title": a["title"], "status": a["status"]}
                              for a in self.journal.all("approval")[:30]],
@@ -354,8 +410,10 @@ class Runtime(Publisher, Progress, Replies):
             self.queue.submit(("approval", request_id), {"digest": request_digest, "choice": choice})
 
     def present(self, request):
-        if not self.enabled or self.stopped.is_set():
+        if self.stopped.is_set():
             return request.respond("deny")
+        if not self.configured:
+            raise TransportUnavailable()
         try:
             with self.observer_lock:
                 correlation = self.observed.pop(request.request_id, None)
@@ -374,6 +432,8 @@ class Runtime(Publisher, Progress, Replies):
                                     device_id=self.settings.get("device_id", ""), is_cancelled=self.stopped.is_set,
                                     on_state=self._approval_state)
             return bridge.present(request)
+        except TransportUnavailable:
+            raise
         except (NotifyError, OSError, ValueError, TypeError):
             return request.respond("deny")
 
@@ -432,6 +492,10 @@ class Runtime(Publisher, Progress, Replies):
     def close(self):
         self.stopped.set()
         abandoned = self.queue.close()
-        if abandoned:
-            self._background_failure("Plugin unloaded with queued work; retry from the owning session")
-        self.snapshot()
+        try:
+            if abandoned:
+                self._background_failure("Plugin unloaded with queued work; retry from the owning session")
+            self.snapshot()
+        except (OSError, sqlite3.Error, NotifyError):
+            # Unload must not fail because profile storage was removed or is being replaced.
+            pass
