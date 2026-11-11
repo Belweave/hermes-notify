@@ -197,9 +197,10 @@ def _saved_token():
 
 
 def _save_token(token):
-    # Hermes's own .env writer: same file the install prompt uses, correct path on every OS.
-    from hermes_cli.config import save_env_value
-    save_env_value(ENV_NAME, token)
+    # Public plugin API (hermes_cli/data/plugin_api.json): Hermes's own profile .env writer,
+    # the same file the install prompt uses, at the right path on every OS.
+    from hermes_cli.gateway_setup_wizard import save_env_values
+    save_env_values(**{ENV_NAME: token})
     os.environ[ENV_NAME] = token
 
 
