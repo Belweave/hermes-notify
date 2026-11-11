@@ -75,6 +75,10 @@ class ApprovalBridge:
                     state = "denied"
                     return request.respond("deny")
                 remaining = self._remaining(deadline)
+                if remaining <= 0.1:
+                    # Too little time left for a useful long poll. Coarse clocks (Windows)
+                    # would otherwise spend one more request on a zero-second wait.
+                    raise NotifyError("Approval deadline reached")
                 started = time.monotonic()
                 result = self.client.wait(interaction_id, min(5, max(0, remaining - 0.1)), min(7, remaining))
                 interaction = self._interaction(result)
