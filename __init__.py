@@ -39,6 +39,7 @@ def register(ctx):
             "publish_token": resolve_secret("HERMES_NOTIFY_PUBLISH_TOKEN") if enabled else "",
             "test_url": os.environ.get("HERMES_NOTIFY_TEST_URL") if enabled else None,
             "test_worker_url": os.environ.get("HERMES_NOTIFY_TEST_WORKER_URL") if enabled else None,
+            "webhook_secret": resolve_secret("NOTIFY_WEBHOOK_SECRET") if enabled else "",
         }
 
     state = getattr(ctx, "state", None)

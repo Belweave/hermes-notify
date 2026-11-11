@@ -11,6 +11,7 @@ requires_env:
     url: https://notify.belweave.ai/docs
     secret: true
 optional_env:
+  - NOTIFY_WEBHOOK_SECRET
   - HERMES_NOTIFY_PUBLISH_TOKEN
   - HERMES_NOTIFY_TEST_URL
   - HERMES_NOTIFY_TEST_WORKER_URL
@@ -55,6 +56,18 @@ config_schema:
     type: bool
     default: false
     description: Permit explicit same-session injection of phone answers (approval, yes_no and reply questions), subject to Hermes authorization.
+  inbound_webhook_port:
+    type: int
+    default: 0
+    description: Port for signed Notify answer webhooks (0 = off). `hermes notify webhooks on` sets it.
+  inbound_webhook_host:
+    type: str
+    default: "127.0.0.1"
+    description: Interface for the answer webhook listener. Keep 127.0.0.1 behind a tunnel or `boat host --localhost`.
+  inbound_webhook_id:
+    type: str
+    default: ""
+    description: Notify webhook ID created by `hermes notify webhooks on`, removed by `off`.
 provides_tools:
   - notify_release
   - notify_publish_app

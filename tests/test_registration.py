@@ -82,7 +82,7 @@ def test_enabled_registration_captures_both_secrets_and_caller_context(tmp_path,
               register_approval_transport=lambda *_: None, on_unload=cleanup.append)
         load_plugin().register(ctx)
         try:
-            assert reads == ["NOTIFY_API_TOKEN", "HERMES_NOTIFY_PUBLISH_TOKEN"]
+            assert reads == ["NOTIFY_API_TOKEN", "HERMES_NOTIFY_PUBLISH_TOKEN", "NOTIFY_WEBHOOK_SECRET"]
             # Tool calls re-resolve in the caller's own context, so a key saved after load is
             # picked up; they read only the declared secrets.
             reads.clear()
@@ -96,7 +96,7 @@ def test_enabled_registration_captures_both_secrets_and_caller_context(tmp_path,
             with scoped_session_key("other"):
                 result = json.loads(registered["notify_send"]["handler"]({"project": "test", "body": "Wrong"}, session_id="other"))
                 assert not result["ok"]
-            assert reads and set(reads) == {"NOTIFY_API_TOKEN", "HERMES_NOTIFY_PUBLISH_TOKEN"}
+            assert reads and set(reads) == {"NOTIFY_API_TOKEN", "HERMES_NOTIFY_PUBLISH_TOKEN", "NOTIFY_WEBHOOK_SECRET"}
         finally:
             for stop in cleanup:
                 stop()

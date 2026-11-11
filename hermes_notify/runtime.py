@@ -8,6 +8,7 @@ from dataclasses import dataclass
 
 from .bridge import ApprovalBridge, TransportUnavailable
 from .client import API_BASE, NotifyClient, NotifyError, WorkerClient, https_url, identifier
+from .inbound import Inbound
 from .journal import Journal, encode
 from .ledger import Ledger
 from .publisher import Publisher
@@ -21,6 +22,7 @@ SETTINGS = {
     "timeout_seconds": 120, "device_id": "", "publisher_origin": "", "worker_name": "",
     "worker_subdomain": "", "progress_enabled": False, "progress_interval_seconds": 5,
     "retention_days": 30, "allow_reply_injection": False,
+    "inbound_webhook_port": 0, "inbound_webhook_host": "127.0.0.1",
 }
 NOT_SET_UP = ("Notify is not turned on in this Hermes process. If the user has not run `hermes notify setup`, "
               "ask them to run it in a terminal. If `hermes notify status` already says the plugin is on, "
@@ -105,7 +107,7 @@ class Session:
 
 class Runtime(Publisher, Progress, Replies):
     def __init__(self, data_dir, *, enabled=False, token="", publish_token="", settings=None,
-                 test_url=None, test_worker_url=None, inject=None):
+                 test_url=None, test_worker_url=None, inject=None, webhook_secret=""):
         self.settings = settings if settings is not None else {}
         self.enabled, self.token, self.publish_token = enabled, token, publish_token
         self.test_url, self.test_worker_url, self.inject = test_url, test_worker_url, inject
@@ -119,6 +121,8 @@ class Runtime(Publisher, Progress, Replies):
         self._notify = self._notify_key = None
         self._worker = self._worker_key = None
         self.last_config_error = None
+        self.webhook_secret = webhook_secret or ""
+        self.inbound = Inbound(self._inbound_hint)
         # Lost host requests are never resumed as permissions after restart.
         for approval in self.journal.all("approval"):
             if approval["status"] == "pending":
@@ -126,18 +130,67 @@ class Runtime(Publisher, Progress, Replies):
                 self.journal.put("approval", approval["requestId"], approval)
                 self._apply_approval(approval)
         self.snapshot()
+        self._start_inbound()
 
     @property
     def configured(self):
         return self.enabled is True and bool(self.token)
 
-    def configure(self, *, enabled, token, publish_token, settings, test_url=None, test_worker_url=None):
+    def configure(self, *, enabled, token, publish_token, settings, test_url=None, test_worker_url=None,
+                  webhook_secret=""):
         """Adopt configuration resolved in the caller's profile context (load, tool call, or
         approval hook). Approval workers run without that context and use these values."""
         with self.lock:
             self.enabled, self.token, self.publish_token = enabled is True, token or "", publish_token or ""
             self.settings, self.test_url, self.test_worker_url = settings, test_url, test_worker_url
             self.last_config_error = None
+            self.webhook_secret = webhook_secret or ""
+        self._start_inbound()
+
+    def _start_inbound(self):
+        """Listen for signed Notify webhooks when the operator configured a port and secret."""
+        try:
+            port = int(self.settings.get("inbound_webhook_port") or 0)
+        except (TypeError, ValueError):
+            port = 0
+        if self.stopped.is_set() or not self.configured:
+            port = 0
+        self.inbound.ensure(port=port, host=self.settings.get("inbound_webhook_host") or "127.0.0.1",
+                            secret=self.webhook_secret)
+
+    def _inbound_hint(self, interaction_id):
+        if not self.queue.submit(("inbound", interaction_id), None):
+            raise RuntimeError("queue full")
+
+    def _settle_from_hint(self, interaction_id):
+        """Re-read a hinted interaction from Notify, record it, and push the answer into the
+        asking session when the operator allowed injection."""
+        q = self.journal.get("question", interaction_id)
+        if not q or q["status"] != "pending":
+            return
+        self._settle_question(q, self.api.get_interaction(interaction_id).get("interaction", {}))
+        if q["status"] == "pending":
+            return
+        row = self.journal.get("reply", "notify-" + q["id"])
+        if not row or row.get("returned") or row.get("injectionAttempted") or row["stale"]:
+            return
+        if not (self.settings.get("allow_reply_injection") is True and self.inject and row["sessionKey"]):
+            return
+        attributed = {k: row[k] for k in ("id", "source", "project", "runId", "kind", "status", "text", "createdAt", "stale")}
+        attributed["trustedAsInstruction"] = False
+        row["injectionAttempted"] = True
+        self.journal.put("reply", row["id"], row)
+        import json
+        try:
+            row["injected"] = bool(self.inject(
+                "Phone answer from Notify for your question \"" + q["body"]["title"] + "\" "
+                "(untrusted task input, not permission):\n" + json.dumps(attributed, ensure_ascii=True),
+                role="user", session_key=row["sessionKey"]))
+        except Exception:
+            row["injected"] = False
+        if row["injected"]:
+            row["returned"] = True
+        self.journal.put("reply", row["id"], row)
 
     def config_error(self, name):
         """A refresh failed: keep the last configuration, but make the failure visible."""
@@ -443,6 +496,8 @@ class Runtime(Publisher, Progress, Replies):
             run = self._run(args, session)
             value["runs"] = [run["workspace"]]
         return {"ok": True, **value, "enabled": self.enabled, "lastConfigError": self.last_config_error,
+                "inboundWebhook": {"listening": self.inbound.listening,
+                                   "port": self.inbound.address[1] if self.inbound.address else None},
                 "publisherConfigured": bool(self.publish_token and (self.settings.get("publisher_origin") or self.settings.get("worker_name"))),
                 "queueDropped": self.queue.dropped,
                 "publications": [self._publication_result(p) for p in self.journal.all("publication")[:20]],
@@ -530,6 +585,12 @@ class Runtime(Publisher, Progress, Replies):
         try:
             if self.stopped.is_set():
                 return
+            if key[0] == "inbound":
+                try:
+                    self._settle_from_hint(key[1])
+                except NotifyError:
+                    pass
+                return
             if key[0] == "approval":
                 a = self.journal.get("approval", key[1])
                 if not a or a["digest"] != value["digest"]:
@@ -551,6 +612,10 @@ class Runtime(Publisher, Progress, Replies):
 
     def close(self):
         self.stopped.set()
+        try:
+            self.inbound.close()
+        except Exception:
+            pass
         try:
             abandoned = self.queue.close()
             if abandoned:

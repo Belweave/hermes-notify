@@ -27,7 +27,8 @@ from .client import API_BASE, USER_AGENT, NoRedirects
 SITE = "https://notify.belweave.ai"
 ENV_NAME = "NOTIFY_API_TOKEN"
 SCOPES = ["notifications:send", "interactions:create", "interactions:read", "devices:read",
-          "apps:read", "apps:write", "activities:read", "activities:write"]
+          "apps:read", "apps:write", "activities:read", "activities:write",
+          "services:read", "services:write"]  # services:* manages the answer webhook.
 KEY_LIFETIME_SECONDS = 90 * 86400
 IOS_URL = "https://testflight.apple.com/join/1MDYPc7a"
 ANDROID_URL = "https://github.com/Belweave/notify/tree/main/apps/android"
@@ -399,6 +400,115 @@ def cmd_approvals(ctx, args):
     return 1
 
 
+WEBHOOK_SECRET_ENV = "NOTIFY_WEBHOOK_SECRET"
+DEFAULT_WEBHOOK_PORT = 8645
+
+
+def _public_url_from_boat(port):
+    """On a Boat sandbox, `boat host` gives the port a stable public HTTPS URL."""
+    import re
+    exe = shutil.which("boat")
+    if not exe:
+        return None
+    try:
+        done = subprocess.run([exe, "host", str(port), "--public", "--localhost", "--json",
+                               "--title", "Hermes Notify webhook"],
+                              capture_output=True, text=True, timeout=60, stdin=subprocess.DEVNULL)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    match = re.search(r"https://[^\s\"']+", done.stdout or "")
+    return match.group(0).rstrip("/") if done.returncode == 0 and match else None
+
+
+def _create_webhook(token, url):
+    from .inbound import EVENTS
+    return _request("POST", API_BASE + "/webhooks", token=token, body={
+        "name": "Hermes (" + (socket.gethostname() or "computer").split(".")[0][:40] + ")",
+        "url": url, "preset": "generic", "events": list(EVENTS), "isDefault": True})
+
+
+def _probe(url, seconds=20):
+    """GET the public health URL until something answers (the listener may need a moment)."""
+    deadline = time.monotonic() + seconds
+    while time.monotonic() < deadline:
+        try:
+            status, body = _request("GET", url, timeout=5)
+            if status == 200 and body.get("service") == "hermes-notify":
+                return True
+        except SetupError:
+            pass
+        time.sleep(2)
+    return False
+
+
+def cmd_webhooks(ctx, args):
+    """Push phone answers into Hermes: Notify calls a signed webhook instead of Hermes polling."""
+    from .inbound import Inbound, PATH
+    port = int(getattr(args, "port", None) or DEFAULT_WEBHOOK_PORT)
+    if getattr(args, "state", "on") == "off":
+        if ctx is not None and hasattr(ctx, "set_config"):
+            ctx.set_config("inbound_webhook_port", 0)
+        webhook_id = ctx.get_config("inbound_webhook_id", "") if ctx is not None else ""
+        token = _saved_token()
+        if webhook_id and token:
+            _request("DELETE", API_BASE + "/webhooks/" + webhook_id, token=token)
+        if ctx is not None and hasattr(ctx, "set_config"):
+            ctx.set_config("inbound_webhook_id", "")
+        _say("Inbound webhooks: off. Use notify_replies to collect answers.")
+        return 0
+    token = _saved_token()
+    if not token:
+        raise SetupError("No Notify key yet. Run `hermes notify setup` first.")
+    base = (getattr(args, "url", None) or "").rstrip("/")
+    if not base:
+        _say(f"Getting a public HTTPS URL for port {port}...")
+        base = _public_url_from_boat(port) or ""
+    if not base.startswith("https://"):
+        _say("Hermes needs a public HTTPS URL that forwards to port %d on this machine." % port)
+        _say("  On a Boat sandbox:   boat host <sandbox-id> %d --public --localhost" % port)
+        _say("  Elsewhere, e.g.:     cloudflared tunnel --url http://localhost:%d" % port)
+        _say("Then run: hermes notify webhooks on --url https://<that-url>")
+        return 1
+    url = base if base.endswith(PATH) else base + PATH
+    status, created = _create_webhook(token, url)
+    if status == 403:
+        _say("Your Notify key predates webhook permission. Approve a new key in the browser:")
+        token = sign_in(open_browser=not getattr(args, "no_browser", False))
+        _save_token(token)
+        status, created = _create_webhook(token, url)
+    secret = created.get("signingSecret") if isinstance(created, dict) else None
+    webhook = created.get("webhook") if isinstance(created, dict) else None
+    if status >= 400 or not isinstance(secret, str) or not isinstance(webhook, dict):
+        raise SetupError(f"Notify could not save the webhook (HTTP {status}): {created.get('error', '')}".rstrip(": "))
+    from hermes_cli.gateway_setup_wizard import save_env_values
+    save_env_values(**{WEBHOOK_SECRET_ENV: secret})
+    os.environ[WEBHOOK_SECRET_ENV] = secret
+    if ctx is not None and hasattr(ctx, "set_config"):
+        old = ctx.get_config("inbound_webhook_id", "")
+        if old and old != webhook.get("id"):
+            _request("DELETE", API_BASE + "/webhooks/" + old, token=token)
+        ctx.set_config("inbound_webhook_port", port)
+        ctx.set_config("inbound_webhook_id", webhook.get("id", ""))
+        ctx.set_config("allow_reply_injection", True)
+    # Lets the TUI/gateway host accept the answer as a new turn in the asking session.
+    _hermes_config("set", "plugins.entries.hermes-notify.allow_gateway_injection", "true")
+    _say(f"Notify will push answers to {url}")
+    # Prove the public URL reaches this machine. A running Hermes may already hold the port.
+    probe = Inbound(lambda _iid: None)
+    probe.ensure(port=port, host="127.0.0.1", secret=secret)
+    try:
+        reachable = _probe(url)
+    finally:
+        probe.close()
+    if reachable:
+        _say("Reachable from the internet: yes.")
+    else:
+        _say("Could not reach the URL yet. Hermes listens once it reloads; check again with `hermes notify status`.")
+    _say("Restart Hermes (and the gateway, if one runs) so it starts listening. Phone answers then")
+    _say("arrive in the session that asked, with no polling.")
+    return 0
+
+
 def register_cli(ctx):
     def setup_parser(parser):
         subs = parser.add_subparsers(dest="notify_command", required=False)
@@ -414,11 +524,17 @@ def register_cli(ctx):
         approvals = subs.add_parser("approvals", help="Send Hermes command approvals to your phone (on) or the terminal (off)")
         approvals.add_argument("state", choices=["on", "off"])
         approvals.add_argument("--force", action="store_true", help="Replace another selected approval transport")
+        hooks = subs.add_parser("webhooks", help="Push phone answers into Hermes with a signed webhook (no polling)")
+        hooks.add_argument("state", choices=["on", "off"])
+        hooks.add_argument("--url", help="Public HTTPS URL that forwards to the port (detected on Boat)")
+        hooks.add_argument("--port", type=int, default=DEFAULT_WEBHOOK_PORT, help="Local port to listen on")
+        hooks.add_argument("--no-browser", action="store_true", help="Print sign-in links instead of opening a browser")
         parser.set_defaults(func=dispatch)
 
     def dispatch(args):
         command = getattr(args, "notify_command", None) or "setup"
-        handler = {"setup": cmd_setup, "status": cmd_status, "test": cmd_test, "approvals": cmd_approvals}[command]
+        handler = {"setup": cmd_setup, "status": cmd_status, "test": cmd_test, "approvals": cmd_approvals,
+                   "webhooks": cmd_webhooks}[command]
         try:
             return handler(ctx, args)
         except SetupError as exc:

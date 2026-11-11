@@ -30,6 +30,29 @@ Other commands: `hermes notify status` (key, plugin, approvals and phones), `her
 
 The Python runtime uses only the standard library and runs the same on macOS, Linux and Windows. CI runs the test suite on all three.
 
+## Push phone answers into Hermes (inbound webhooks)
+
+By default an answer to `notify_ask` waits until the agent calls `notify_replies`. To have answers
+arrive on their own, give Hermes a public HTTPS URL and let Notify call it:
+
+```sh
+hermes notify webhooks on                 # on a Boat sandbox: exposes port 8645 with `boat host`
+hermes notify webhooks on --url https://your-tunnel.example.com   # anywhere else
+```
+
+This creates a Notify reply webhook (events: answered, expired, canceled), saves its signing secret
+as `NOTIFY_WEBHOOK_SECRET` in the profile `.env`, sets `inbound_webhook_port`, and allows the plugin
+to inject turns (`allow_reply_injection`, `plugins.entries.hermes-notify.allow_gateway_injection`).
+Restart Hermes and the gateway so the running process starts listening.
+
+Each delivery is verified (`X-Notify-Signature`, HMAC-SHA256 of `"<t>.<body>"`, 5-minute replay
+window) and treated only as a hint: the plugin re-reads the interaction from the Notify API before
+recording it, then injects the answer into the Hermes session that asked, labelled as untrusted
+input, never as permission. The listener binds `127.0.0.1` by default; expose it through a tunnel
+or `boat host --localhost`. `notify_status` shows `inboundWebhook.listening`. Turn it off with
+`hermes notify webhooks off` (deletes the Notify webhook). Without webhooks, `notify_replies`
+still works from any session of the profile.
+
 ## Install
 
 The source repository is [Belweave/hermes-notify](https://github.com/Belweave/hermes-notify). This is a catalog candidate; installation by the bare catalog name becomes available only after maintainer acceptance. Use a Hermes build with the public approval transport API. The verified source revision is recorded below; no minimum released version is claimed.
