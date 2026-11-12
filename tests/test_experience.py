@@ -237,3 +237,17 @@ def test_a_failed_wait_still_returns_the_question_it_asked(pocket):
     asked = ask(rt, wait_seconds=1)
     assert asked["ok"] and asked["status"] == "pending" and asked["waitError"]["httpStatus"] == 503
     assert ask(rt)["resumed"] and mock.count("POST", "/api/agent/interactions") == 1
+
+
+def test_unknown_question_outcome_is_never_sent_twice_within_the_window(pocket):
+    rt, mock, _ = pocket
+    mock.fail("POST", "/api/agent/interactions", status=503)
+    first = ask(rt)
+    assert not first["ok"] and first["httpStatus"] == 503 and "Retry the same call later" in first["error"]
+    retry = ask(rt)
+    assert not retry["ok"] and "no duplicate was sent" in retry["error"]
+    assert mock.count("POST", "/api/agent/interactions") == 1
+    age(rt, 3600)  # Long after: the person never saw a prompt that expired meanwhile; ask anew.
+    later = ask(rt)
+    assert later["ok"] and later["status"] == "pending"
+    assert mock.count("POST", "/api/agent/interactions") == 2

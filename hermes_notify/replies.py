@@ -104,7 +104,9 @@ class Replies:
     def _question_open(self, recent, intent):
         """Identical content reuses the earlier question only while it can still be answered."""
         if intent["phase"] != "done":
-            return time.time() - recent["at"] < RETRY_WINDOW_SECONDS
+            # An uncertain create may be on the phone until it expires: do not ask again before then.
+            lifetime = intent.get("body", {}).get("expiresInSeconds", 0)
+            return time.time() - recent["at"] < max(RETRY_WINDOW_SECONDS, lifetime)
         iid = (intent.get("result") or {}).get("interaction", {}).get("id")
         q = self.journal.get("question", iid) if isinstance(iid, str) else None
         return q is None or (q["status"] == "pending" and time.time() < q["deadline"])
