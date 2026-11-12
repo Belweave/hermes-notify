@@ -21,6 +21,9 @@ MAX_BYTES = 512 * 1024
 MAX_RUNS = 20
 MAX_PENDING = 50
 MAX_DELIVERIES = 50
+MAX_QUESTIONS = 30
+QUESTION_KINDS = {"approval", "yes_no", "reply"}
+RUN_KINDS = {"release", "job"}
 RUN_STATES = {"preparing", "running", "awaiting_approval", "approved", "shipped", "denied", "failed", "canceled"}
 DECISION_STATES = {"pending", "approved", "denied", "expired", "canceled"}
 CHECK_STATES = {"pending", "running", "passed", "failed"}
@@ -106,6 +109,20 @@ def _workspace(row):
         "updatedAt": _text(row["updatedAt"], 64),
         "appId": None if row["appId"] is None else _text(row["appId"], 128),
         "approval": approval,
+        "kind": _text(row.get("kind", "release"), 16, choices=RUN_KINDS),
+    }
+
+
+def _question(row):
+    deadline = row["deadline"]
+    if type(deadline) not in (int, float) or not math.isfinite(deadline) or deadline < 0:
+        raise ValueError("Invalid deadline")
+    return {
+        "interactionId": _text(row["interactionId"], 128, pattern=r"[A-Za-z0-9_-]{1,128}"),
+        "project": _project(row["project"]),
+        "kind": _text(row["kind"], 16, choices=QUESTION_KINDS),
+        "title": _text(row["title"], 80),
+        "deadline": deadline,
     }
 
 
@@ -125,7 +142,9 @@ def validate_snapshot(value):
             "project": "" if delivery["project"] == "" else _project(delivery["project"]),
             "state": _text(delivery["state"], 80),
             "message": _text(delivery["message"], 500),
+            "at": None if delivery.get("at") is None else _text(delivery["at"], 64),
         }),
+        "pendingQuestions": _rows(row.get("pendingQuestions", []), MAX_QUESTIONS, _question),
         "updatedAt": _text(row["updatedAt"], 64),
     }
 

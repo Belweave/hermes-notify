@@ -59,9 +59,13 @@ function date(value) {
   return Number.isFinite(parsed.getTime()) ? parsed.toLocaleString() : 'Time unavailable';
 }
 
+function questions(data) {
+  return Array.isArray(data?.pendingQuestions) ? data.pendingQuestions : [];
+}
+
 function needsRefresh(data) {
   if (!data?.configured) return false;
-  return data.pending.some(item => item.status === 'pending') ||
+  return data.pending.some(item => item.status === 'pending') || questions(data).length > 0 ||
     data.runs.some(run => ['preparing', 'running', 'awaiting_approval', 'approved'].includes(run.status));
 }
 
@@ -82,7 +86,8 @@ function snapshot(value) {
   if (value?.schemaVersion !== 1 || typeof value.configured !== 'boolean' ||
       !Array.isArray(value.runs) || value.runs.length > 20 ||
       !Array.isArray(value.pending) || value.pending.length > 50 ||
-      !Array.isArray(value.deliveries) || value.deliveries.length > 50) {
+      !Array.isArray(value.deliveries) || value.deliveries.length > 50 ||
+      (value.pendingQuestions !== undefined && (!Array.isArray(value.pendingQuestions) || value.pendingQuestions.length > 30))) {
     throw new Error('Status format unavailable. Update the runtime and refresh.');
   }
   return value;
@@ -119,7 +124,7 @@ function Run({ run, ctx }) {
   return h('article', { className: 'hn-record' },
     h('div', { className: 'hn-row' },
       h('h3', null, run.name), h('span', { className: 'hn-state' }, label(run.status))),
-    h('p', { className: 'hn-meta' }, `${run.project} / ${run.version} / revision ${run.revision}`),
+    h('p', { className: 'hn-meta' }, run.kind === 'job' ? `${run.project} / job` : `${run.project} / ${run.version} / revision ${run.revision}`),
     h('p', null, run.stage), h('p', null, run.summary),
     measured ? h('div', null,
       h('progress', { value: run.progress, max: 1, 'aria-label': `${run.name}: measured progress` }),
@@ -151,12 +156,14 @@ function Companion({ ctx, lifetime }) {
   const data = gateway === 'open' && !query.isError ? query.data : null;
   const apps = data ? registeredApps(data.runs) : [];
   const pending = data?.pending.filter(item => item.status === 'pending') || [];
+  const asked = questions(data);
+  const kinds = { approval: 'Approve or deny', yes_no: 'Yes or no', reply: 'Written reply' };
   return h('main', { className: 'hermes-notify', 'aria-label': 'Hermes Pocket' },
     h('style', null, CSS),
     h('header', null,
       h('div', { className: 'hn-row' }, h('h1', null, 'Hermes Pocket'),
         h('button', { type: 'button', disabled: gateway !== 'open' || query.isFetching, onClick: () => query.refetch() }, query.isFetching ? 'Refreshing...' : 'Refresh')),
-      h('p', null, 'Your Apps, release runs and decisions.'),
+      h('p', null, 'Jobs, releases, questions and deliveries for this profile.'),
       h('p', { className: 'hn-meta' }, `Active profile: ${profile || 'default'}. Notify is the phone surface.`)),
     gateway !== 'open' ? h('p', { className: 'hn-notice', role: 'status' }, 'Connect this profile to Hermes to read its status.') : null,
     gateway === 'open' && query.isPending ? h('p', { role: 'status' }, 'Reading this profile\'s status...') : null,
@@ -168,7 +175,7 @@ function Companion({ ctx, lifetime }) {
     data && !data.configured ? h('p', { className: 'hn-notice', role: 'status' },
       'Notify is not configured or sending is disabled for this profile. These are saved records. Use notify_status for setup details; this pane cannot enable sending or grant permission.') : null,
     data ? h('div', null,
-      h('p', { className: 'hn-meta' }, `Snapshot: ${date(data.updatedAt)}. Refresh to check again.`),
+      h('p', { className: 'hn-meta', role: 'status' }, `${data.configured ? 'Notify is set up for this profile.' : 'Notify is not set up.'} Snapshot: ${date(data.updatedAt)}. Refresh to check again.`),
       h('section', { 'aria-label': 'Apps' }, h('h2', null, `Apps (${apps.length})`),
         apps.length ? apps.map(run => h('article', { key: run.project, className: 'hn-record' },
           h('h3', null, run.name),
@@ -178,16 +185,22 @@ function Companion({ ctx, lifetime }) {
           : h('p', null, 'No registered Apps in this snapshot. Publish a release workspace or register an existing hosted App with notify_publish_app.')),
       h('section', { 'aria-label': 'Runs' }, h('h2', null, `Runs (${data.runs.length})`),
         data.runs.length ? data.runs.map(run => h(Run, { key: `${run.project}:${run.runId}`, run, ctx }))
-          : h('p', null, 'No release runs yet. Begin a release workspace with notify_release.')),
-      h('section', { 'aria-label': 'Pending decisions' }, h('h2', null, `Pending decisions (${pending.length})`),
-        h('p', { className: 'hn-meta' }, 'Answer host approvals in the native Notify interaction. A written reply cannot authorize an action.'),
-        pending.length ? pending.map((item, i) => h('article', { className: 'hn-record', key: `${item.requestId}:${i}` },
-          h('h3', null, item.title), h('p', { className: 'hn-state' }, 'Waiting for a phone answer')))
-          : h('p', null, 'No pending decisions in this snapshot.')),
+          : h('p', null, 'No jobs or releases yet. Ask Hermes to show a long job on your phone (notify_progress).')),
+      h('section', { 'aria-label': 'Pending decisions' }, h('h2', null, `Pending decisions (${pending.length + asked.length})`),
+        h('p', { className: 'hn-meta' }, 'Answer on your phone in Notify. A written reply cannot authorize a Hermes command.'),
+        pending.length || asked.length ? [
+          ...pending.map((item, i) => h('article', { className: 'hn-record', key: `${item.requestId}:${i}` },
+            h('h3', null, item.title), h('p', { className: 'hn-state' }, 'Command approval: waiting for a phone answer'))),
+          ...asked.map((item, i) => h('article', { className: 'hn-record', key: `${item.interactionId}:${i}` },
+            h('h3', null, item.title),
+            h('p', { className: 'hn-state' }, `${kinds[item.kind] || 'Question'}: waiting for a phone answer`),
+            h('p', { className: 'hn-meta' }, `${item.project} / expires ${date(item.deadline * 1000)}`)))
+        ] : h('p', null, 'No pending decisions in this snapshot.')),
       h('section', { 'aria-label': 'Delivery health' }, h('h2', null, 'Delivery health'),
         h('p', { className: 'hn-meta' }, 'Provider acceptance does not prove the phone displayed an update.'),
         data.deliveries.length ? data.deliveries.map((item, i) => h('article', { className: 'hn-record', key: `${item.project}:${i}` },
-          h('h3', null, item.project || 'Plugin'), h('p', { className: 'hn-state' }, label(item.state)), h('p', null, item.message)))
+          h('h3', null, item.project || 'Plugin'), h('p', { className: 'hn-state' }, label(item.state)), h('p', null, item.message),
+          item.at ? h('p', { className: 'hn-meta' }, `At ${date(item.at)}`) : null))
           : h('p', null, 'No delivery attempts in this snapshot.'))
     ) : null);
 }

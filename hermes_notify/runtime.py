@@ -503,7 +503,7 @@ class Runtime(Publisher, Progress, Replies, Jobs):
             project = slug(project)
         except NotifyError:
             project = ""
-        record = {"project": project, "state": state, "message": message[:500]}
+        record = {"project": project, "state": state, "message": message[:500], "at": now()}
         self.journal.put("delivery", project, record)
         self.snapshot()
 
@@ -528,7 +528,8 @@ class Runtime(Publisher, Progress, Replies, Jobs):
                 if record.get("state") == "not_configured":
                     self.journal.delete("delivery", record["project"])
         value = {"schemaVersion": 1, "configured": configured,
-                 "runs": [r["workspace"] for r in self.journal.all("run") if not r.get("auto")][:10],
+                 "runs": [r["workspace"] | {"kind": r.get("kind", "release")}
+                          for r in self.journal.all("run") if not r.get("auto")][:10],
                  "pending": [{"requestId": a["requestId"], "title": a["title"], "status": a["status"]}
                              for a in self.journal.all("approval")[:30]],
                  "pendingQuestions": self.pending_questions(),
