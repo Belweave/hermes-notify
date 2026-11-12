@@ -31,6 +31,8 @@ def test_signature_scheme_matches_notify():
     assert not verify("other", header, body, now=1791633600)
     assert not verify("whsec", header, body + b" ", now=1791633600)
     assert not verify("whsec", header, body, now=1791633600 + 301)  # replay window
+    assert verify("whsec", header, body, now=1791633600 - 30)  # ordinary clock skew
+    assert not verify("whsec", header, body, now=1791633600 - 120)  # signed in the future
     assert not verify("whsec", "forged", body)
 
 
@@ -105,3 +107,52 @@ def test_listener_takes_the_port_once_it_is_free(tmp_path, monkeypatch):
     finally:
         blocker.close()
         rt.close()
+
+
+def test_listener_keeps_retrying_while_another_process_holds_the_port(tmp_path, monkeypatch):
+    """A short-lived `hermes notify ...` can hold the port for longer than one retry."""
+    from hermes_notify import inbound as module
+    monkeypatch.setattr(module, "RETRY_SECONDS", 0.3)
+    port = free_port()
+    blocker = socket.socket()
+    blocker.bind(("127.0.0.1", port))
+    blocker.listen()
+    rt = Runtime(tmp_path, enabled=True, token="dummy", webhook_secret="whsec", settings={"inbound_webhook_port": port})
+    try:
+        time.sleep(1.5)  # Several failed attempts.
+        assert not rt.inbound.listening
+        blocker.close()
+        deadline = time.monotonic() + 10
+        while not rt.inbound.listening and time.monotonic() < deadline:
+            time.sleep(0.1)
+        assert rt.inbound.listening
+    finally:
+        blocker.close()
+        rt.close()
+
+
+def test_replayed_or_reordered_deliveries_settle_once_from_the_api(tmp_path):
+    """A delivery is a hint: duplicates and an out-of-order expiry cannot change a recorded answer."""
+    mock, port = PocketMock(), free_port()
+    with mock.serve() as url:
+        rt = Runtime(tmp_path, enabled=True, token="dummy", webhook_secret="whsec",
+                     settings={"inbound_webhook_port": port}, test_url=url + "/api/agent")
+        try:
+            asked = rt.call("notify_ask", {"prompt": "Ship it?", "kind": "yes_no"}, Session("", "a"))
+            iid = asked["interactionId"]
+            mock.answer = ("yes", "yes")
+            answered = json.dumps({"type": "interaction.answered", "interaction": {"id": iid, "status": "no"}}).encode()
+            expired = json.dumps({"type": "interaction.expired", "interaction": {"id": iid}}).encode()
+            for body in (answered, answered, expired):
+                assert post(port, body, sign("whsec", body)) == 202
+            deadline = time.monotonic() + 10
+            while rt.journal.get("question", iid)["status"] == "pending" and time.monotonic() < deadline:
+                time.sleep(0.05)
+            assert rt.queue.drain(10)
+            # The body said "no"; the API (the only authority) said "yes". One GET settled it.
+            assert rt.journal.get("question", iid)["status"] == "yes"
+            assert mock.count("GET", "/api/agent/interactions/" + iid) == 1
+            replies = rt.call("notify_replies", {}, Session("", "a"))["replies"]
+            assert [r["text"] for r in replies] == ["yes"]
+        finally:
+            rt.close()

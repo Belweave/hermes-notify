@@ -16,6 +16,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 PATH = "/notify/webhook"
 MAX_BODY = 64 * 1024
 TOLERANCE_SECONDS = 300
+CLOCK_SKEW_SECONDS = 60  # A signature from the future beyond normal clock skew is refused.
 RETRY_SECONDS = 15
 EVENTS = ("interaction.answered", "interaction.expired", "interaction.canceled")
 logger = logging.getLogger("hermes_notify")
@@ -31,7 +32,8 @@ def verify(secret, header, body, now=None):
     match = re.fullmatch(r"t=(\d{10}),v1=([a-f0-9]{64})", header or "")
     if not secret or not match:
         return False
-    if abs((now if now is not None else time.time()) - int(match.group(1))) > TOLERANCE_SECONDS:
+    age = (now if now is not None else time.time()) - int(match.group(1))
+    if age > TOLERANCE_SECONDS or age < -CLOCK_SKEW_SECONDS:
         return False
     expected = hmac.new(secret.encode(), match.group(1).encode() + b"." + body, hashlib.sha256).hexdigest()
     return hmac.compare_digest(expected, match.group(2))
@@ -74,16 +76,23 @@ class Inbound:
                                 *wanted, type(exc).__name__, RETRY_SECONDS)
                 self.failed = (wanted, time.monotonic())
                 # Another short-lived Hermes command (`hermes notify ...`, `hermes gateway restart`)
-                # may hold the port for a moment. Keep trying so a long-running gateway takes over.
-                if not self.closed and (self.retry is None or not self.retry.is_alive()):
-                    self.retry = threading.Timer(RETRY_SECONDS, self._retry, args=(wanted,))
-                    self.retry.daemon = True
-                    self.retry.start()
+                # may hold the port for a while. Keep trying so a long-running gateway takes over.
+                self._schedule_retry(wanted)
                 return
             server.daemon_threads = True
             self.server, self.address, self.failed = server, wanted, None
             threading.Thread(target=server.serve_forever, kwargs={"poll_interval": 0.5},
                              name="hermes-notify-inbound", daemon=True).start()
+
+    def _schedule_retry(self, wanted):
+        # Called with the lock held. A retry that fails again runs inside the previous timer's
+        # thread, which is still alive at that point: it must schedule the next attempt itself.
+        current = self.retry
+        if self.closed or (current is not None and current.is_alive() and current is not threading.current_thread()):
+            return
+        self.retry = threading.Timer(RETRY_SECONDS, self._retry, args=(wanted,))
+        self.retry.daemon = True
+        self.retry.start()
 
     def _retry(self, wanted):
         with self.lock:
