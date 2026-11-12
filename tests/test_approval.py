@@ -225,3 +225,22 @@ def test_real_hermes_loader_http_gate_and_unload(answer):
     assert report["hermes_approved"] == (answer == "approve")
     assert report["mock_pushes"] == (0 if answer == "disabled" else 1)
     assert not report["action_executed"]
+
+
+def test_approval_prompt_stands_alone(tmp_path):
+    from hermes_notify.bridge import ApprovalBridge
+    from hermes_notify.ledger import Ledger
+    sent = []
+
+    class Api:
+        def create(self, body, key, timeout):
+            sent.append(body)
+            return {"interaction": {"id": "int_prompt", "actionDigest": "d", "status": "denied", "response": "deny", **body}}
+
+        def cancel(self, *_):
+            return {}
+    req = request(timeout_seconds=300)
+    assert ApprovalBridge(Api(), Ledger(tmp_path / "a.sqlite3"), timeout_seconds=120).present(req).choice == "deny"
+    prompt = sent[0]["prompt"]
+    assert req.command in prompt and "Approve runs this once" in prompt and "does not run it" in prompt
+    assert "within 2 min" in prompt and sent[0]["title"] == "Hermes needs your approval"

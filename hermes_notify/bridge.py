@@ -45,7 +45,10 @@ class ApprovalBridge:
             return request.respond("deny")
         # Leave time for the host to receive the decision; the host separately enforces its deadline.
         deadline = time.monotonic() + seconds - 0.25
-        prompt = f"{request.description}\n\nAction: {request.command}\n\nApprove once only. Request {request.request_id[:8]}."
+        # Stand-alone prompt: what runs on approve, and that deny or silence means it does not run.
+        window = f"{math.ceil(seconds / 60)} min" if seconds >= 90 else f"{math.ceil(seconds)} s"
+        prompt = (f"{request.description}\n\nAction: {request.command}\n\nApprove runs this once. Deny, or no "
+                  f"answer within {window}, and Hermes does not run it. Request {request.request_id[:8]}.")
         if len(prompt.encode("utf-16-le")) // 2 > 2000:
             # Never truncate the action that a person is being asked to authorize.
             return request.respond("deny")
