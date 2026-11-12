@@ -6,6 +6,8 @@ import time
 from .client import NotifyError, identifier
 from .workspace import TERMINAL, digest, now, notify_text, slug, text
 
+RETRY_WINDOW_SECONDS = 600  # Matches runtime.RETRY_WINDOW_SECONDS.
+
 
 class Replies:
     def ask(self, args, session):
@@ -21,7 +23,8 @@ class Replies:
                 "kind": kind, "presentation": "notification", "expiresInSeconds": expires}
         if self.settings.get("device_id"):
             body["deviceIds"] = [self.settings["device_id"]]
-        logical = args.get("idempotency_key") or digest(body)
+        logical = self._logical_key("question", run, args, body, self._question_open)
+        resumed = self._already_written("question", run, logical)
         result = self._write_once("question", body, run, logical, self.api.create)
         delivery = self.delivery_state(result)
         interaction = result.get("interaction", {})
@@ -40,12 +43,33 @@ class Replies:
             result = self.api.wait(iid, wait, min(30, wait + 2))
             self._settle_question(q, result.get("interaction", {}))
         out = {"interactionId": iid, "kind": kind, "status": q["status"], "response": q.get("response"),
-               "businessDecisionOnly": True, "delivery": delivery, "stale": q.get("stale", False),
-               "mustPoll": q["status"] == "pending"}
+               "proceed": self._proceed(q), "businessDecisionOnly": True, "delivery": delivery,
+               "stale": q.get("stale", False), "mustPoll": q["status"] == "pending",
+               "expiresInSeconds": max(0, int(q["deadline"] - time.time()))}
+        if resumed:
+            # Same open question (a retry, or the same idempotency_key): no second copy was sent.
+            out["resumed"] = True
+        if delivery == "not_accepted":
+            out["warning"] = ("No phone accepted this question. Do not wait for an answer: ask the user to open "
+                              "the Notify app (or run `hermes notify status`) and treat it as no answer.")
         if q["status"] == "pending":
-            out["next"] = ("The answer is not here yet. You must call notify_replies (same project) to collect it; "
-                           "nothing will deliver it to you automatically.")
+            out["next"] = ("No answer yet. Call notify_replies with wait_seconds 25 (same project) to keep waiting, "
+                           "until it is answered or your own deadline passes; then notify_cancel it. "
+                           "Until there is an answer, do not proceed.")
         return out
+
+    @staticmethod
+    def _proceed(q):
+        """Only a timely approved, yes or replied answer lets the work continue."""
+        return q["status"] in ("approved", "yes", "replied") and not q.get("stale", False)
+
+    def _question_open(self, recent, intent):
+        """Identical content reuses the earlier question only while it can still be answered."""
+        if intent["phase"] != "done":
+            return time.time() - recent["at"] < RETRY_WINDOW_SECONDS
+        iid = (intent.get("result") or {}).get("interaction", {}).get("id")
+        q = self.journal.get("question", iid) if isinstance(iid, str) else None
+        return q is None or (q["status"] == "pending" and time.time() < q["deadline"])
 
     @staticmethod
     def _validate_question(interaction, *, body, iid=None, action_digest=None):
@@ -225,6 +249,7 @@ class Replies:
                 continue
             row["stale"] = row["stale"] or mapping.get("runId") != row["runId"]
             attributed = {k: row[k] for k in ("id", "source", "project", "runId", "kind", "status", "text", "createdAt", "stale")}
+            attributed["proceed"] = self._proceed(row)
             attributed["trustedAsInstruction"] = False
             if not session.matches(row):
                 attributed["askedByAnotherSession"] = True

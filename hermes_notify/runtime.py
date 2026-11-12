@@ -29,6 +29,8 @@ NOT_SET_UP = ("Notify is not turned on in this Hermes process. If the user has n
               "this process is stale: ask them to restart Hermes (and the gateway, if one is running). "
               "notify_status shows lastConfigError.")
 NO_KEY = "No Notify key is saved. Ask the user to run `hermes notify setup` in a terminal"
+# Identical content without an idempotency_key counts as a retry of the same write only this long.
+RETRY_WINDOW_SECONDS = 600
 
 
 def _profile_home():
@@ -177,6 +179,7 @@ class Runtime(Publisher, Progress, Replies):
         if not (self.settings.get("allow_reply_injection") is True and self.inject and row["sessionKey"]):
             return
         attributed = {k: row[k] for k in ("id", "source", "project", "runId", "kind", "status", "text", "createdAt", "stale")}
+        attributed["proceed"] = self._proceed(row)
         attributed["trustedAsInstruction"] = False
         row["injectionAttempted"] = True
         self.journal.put("reply", row["id"], row)
@@ -404,6 +407,33 @@ class Runtime(Publisher, Progress, Replies):
         self.journal.put("intent", key, intent)
         return result
 
+    def _logical_key(self, kind, run, args, body, fresh):
+        """The idempotency key for one tool call.
+
+        An explicit idempotency_key is used as given: the caller says it is the same event.
+        Without one, identical content repeats the earlier write only while ``fresh(recent,
+        intent)`` holds (a retried tool call, a restarted gateway); after that it is a new
+        message or question with a new key. Content alone never revives an old answer.
+        """
+        if args.get("idempotency_key"):
+            return args["idempotency_key"]
+        rid, base = run["workspace"]["runId"], digest(body)
+        slot = self.key("recent-" + kind, [rid, base])
+        recent = self.journal.get("recent", slot) or {"logical": base, "at": 0}
+        intent = self.journal.get("intent", self.key(kind, [rid, recent["logical"]]))
+        if intent is None or (recent["at"] and fresh(recent, intent)):
+            logical = recent["logical"]
+            at = recent["at"] or time.time()
+        else:
+            import uuid
+            logical, at = base + "-" + uuid.uuid4().hex[:12], time.time()
+        self.journal.put("recent", slot, {"logical": logical, "at": at})
+        return logical
+
+    def _already_written(self, kind, run, logical):
+        intent = self.journal.get("intent", self.key(kind, [run["workspace"]["runId"], logical]))
+        return bool(intent and intent["phase"] == "done")
+
     def _notification(self, run, body, logical_key):
         result = self._write_once("notification", body, run, logical_key, self.api.send)
         notification = result.get("notification", {})
@@ -447,7 +477,14 @@ class Runtime(Publisher, Progress, Replies):
                     raise NotifyError("App destination must stay on the registered origin", status=400)
         if self.settings.get("device_id"):
             body["deviceIds"] = [self.settings["device_id"]]
-        return self._notification(run, body, args.get("idempotency_key") or digest(body))
+        logical = self._logical_key("notification", run, args, body,
+                                    lambda recent, _intent: time.time() - recent["at"] < RETRY_WINDOW_SECONDS)
+        duplicate = self._already_written("notification", run, logical)
+        result = self._notification(run, body, logical)
+        if duplicate:
+            # The same message was already sent moments ago (or with this idempotency_key).
+            result["duplicate"] = True
+        return result
 
     def _delivery(self, project, state, message):
         try:
