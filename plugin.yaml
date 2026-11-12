@@ -1,6 +1,6 @@
 manifest_version: 2
 name: hermes-notify
-version: "0.2.3"
+version: "0.3.0"
 description: Hermes Pocket release workspaces, rich updates, replies and exact phone approvals.
 author: Preetham Kyanam
 license: MIT
@@ -75,6 +75,9 @@ provides_tools:
   - notify_ask
   - notify_replies
   - notify_status
+  - notify_progress
+  - notify_cancel
 provides_hooks:
   - pre_approval_request
   - post_approval_response
+  - on_session_finalize

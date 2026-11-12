@@ -22,7 +22,7 @@ import webbrowser
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, build_opener
 
-from .client import API_BASE, USER_AGENT, NoRedirects
+from .client import API_BASE, USER_AGENT, VERSION, NoRedirects
 
 SITE = "https://notify.belweave.ai"
 ENV_NAME = "NOTIFY_API_TOKEN"
@@ -93,7 +93,7 @@ def sign_in(*, open_browser=True):
     if status >= 400 or not isinstance(started.get("deviceCode"), str):
         raise SetupError(f"Notify could not start sign-in (HTTP {status}). Try again in a minute.")
     url = started.get("verificationUriComplete") or started.get("verificationUri")
-    _say("Step 1 of 3 - Sign in to Notify (free; new accounts are created on the same page)")
+    _say("Step 1 of 4 - Sign in to Notify (free; new accounts are created on the same page)")
     _say()
     _say(f"  Open:  {url}")
     _say(f"  Code:  {started.get('userCode')}")
@@ -131,14 +131,25 @@ def sign_in(*, open_browser=True):
     raise SetupError("The sign-in code expired. Run `hermes notify setup` to get a new one.")
 
 
+def _failure(status, detail, what):
+    """One sentence with the fix for a failed Notify request during setup."""
+    if status == 401:
+        return f"{what}: your saved Notify key is no longer valid. Run `hermes notify setup --reauth`."
+    if status == 403:
+        need = [x for x in (detail.get("required") or []) if isinstance(x, str)][:5] if isinstance(detail, dict) else []
+        scope = f" ({', '.join(need)})" if need else ""
+        return f"{what}: your Notify key lacks a permission{scope}. Run `hermes notify setup --reauth` to grant it."
+    if status == 429:
+        return f"{what}: Notify is rate limiting this account. Wait a minute and try again."
+    if status >= 500:
+        return f"{what}: Notify is temporarily unavailable (HTTP {status}). Try again in a few minutes."
+    return f"{what} (HTTP {status})."
+
+
 def devices(token):
     status, result = _request("GET", API_BASE + "/devices", token=token)
-    if status == 401:
-        raise SetupError("Your saved Notify key is no longer valid. Run `hermes notify setup --reauth`.")
-    if status == 403:
-        raise SetupError("Your Notify key cannot list devices. Run `hermes notify setup --reauth` to grant access.")
     if status >= 400:
-        raise SetupError(f"Notify returned HTTP {status} while checking devices.")
+        raise SetupError(_failure(status, result, "Could not check your phones"))
     rows = result.get("devices")
     return [d for d in rows if isinstance(d, dict) and d.get("active", True)] if isinstance(rows, list) else []
 
@@ -188,7 +199,7 @@ def send_test(token):
                                   "body": "Your Hermes agent can now send you updates and ask you questions here.",
                                   "project": "hermes"})
     if status >= 400:
-        raise SetupError(f"The test notification was not accepted (HTTP {status}).")
+        raise SetupError(_failure(status, result, "The test notification was not sent"))
     accepted = result.get("accepted", 0) if isinstance(result, dict) else 0
     queued = result.get("queued", 0) if isinstance(result, dict) else 0
     return accepted, queued
@@ -362,24 +373,40 @@ def cmd_status(ctx, args):
         _say("Config:      loaded settings differ from config.yaml - restart Hermes and the gateway")
     _say("Approvals:   " + ("phone (Notify)" if transport == "notify" else
                             "unknown" if transport is None else f"{transport} - `hermes notify approvals on` to use your phone"))
+    port = ctx.get_config("inbound_webhook_port", 0) if ctx is not None else 0
+    _say("Answers:     " + (f"pushed to this computer (webhook on port {port})" if port else
+                            "collected when Hermes calls notify_replies (`hermes notify webhooks on` pushes them)"))
+    _say(f"Plugin:      hermes-notify {VERSION} (update: `hermes plugins update hermes-notify`)")
+    phones = []
     if token:
-        phones = devices(token)
-        _say(f"Phones:      {', '.join(_describe(d) for d in phones) if phones else 'none - install the Notify app and sign in'}")
+        try:
+            phones = devices(token)
+        except SetupError as exc:
+            _say(f"Phones:      unknown - {exc}")
+            return 1
+        _say(f"Phones:      {', '.join(_describe(d) for d in phones) if phones else 'none - install the Notify app and sign in with the same account'}")
     _say()
     _say("Running Hermes sessions pick up changes on their next Notify call. If a session still says")
     _say("Notify is not set up, restart Hermes (and `hermes gateway`, if you run one), then ask it to")
     _say("call notify_status: `lastConfigError` names any configuration failure.")
-    return 0 if token and enabled and not stale else 1
+    return 0 if token and enabled and not stale and phones else 1
 
 
 def cmd_test(ctx, args):
     token = _saved_token()
     if not token:
         raise SetupError("No Notify key yet. Run `hermes notify setup` first.")
+    phones = devices(token)
     accepted, queued = send_test(token)
-    _say("Notify accepted the test notification." if accepted or queued else
-         "Notify took the request, but no phone is registered yet. Install the app and sign in.")
-    return 0
+    if accepted or queued:
+        _say("Notify accepted the test notification. Check your phone for \"Hermes is connected\".")
+        return 0
+    if not phones:
+        _say("No phone is connected yet. Install the Notify app, sign in with the same account, allow")
+        _say(f"notifications, then run `hermes notify test` again.  iPhone: {IOS_URL}  Android: {ANDROID_URL}")
+    else:
+        _say("Notify has your phone but no push was accepted. On the phone, open Notify and allow notifications.")
+    return 1
 
 
 def cmd_approvals(ctx, args):
@@ -508,8 +535,8 @@ def cmd_webhooks(ctx, args):
         _say("Reachable from the internet: yes.")
     else:
         _say("Could not reach the URL yet. Hermes listens once it reloads; check again with `hermes notify status`.")
-    _say("Restart Hermes (and the gateway, if one runs) so it starts listening. Phone answers then")
-    _say("arrive in the session that asked, with no polling.")
+    _say("Running Hermes sessions and the gateway start listening on their next Notify call (restart the")
+    _say("gateway to listen right away). Answers then arrive in the session that asked, with no polling.")
     return 0
 
 

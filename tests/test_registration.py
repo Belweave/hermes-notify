@@ -110,7 +110,7 @@ def test_catalog_context_registers_all_without_storage_or_secret_reads(monkeypat
                           register_hook=lambda *a: hooks.append(a), register_approval_transport=lambda *a: None,
                           on_unload=lambda fn: None)
     load_plugin().register(ctx)
-    assert len(tools) == 6 and len(hooks) == 2
+    assert len(tools) == 8 and len(hooks) == 3
 
 
 def test_all_notify_runtime_write_shapes_match_saved_openapi(pocket):
@@ -138,11 +138,11 @@ def test_all_notify_runtime_write_shapes_match_saved_openapi(pocket):
     assert len(checked) == 6
 
 
-def test_real_hermes_loader_dispatches_six_tools_and_unloads():
+def test_real_hermes_loader_dispatches_every_tool_and_unloads():
     import subprocess
     done = subprocess.run([sys.executable, str(ROOT / "tests/loader_runtime_probe.py")],
                           cwd=ROOT, capture_output=True, text=True, timeout=180, check=True)  # cold Hermes import is slow on CI runners
-    assert json.loads(done.stdout) == {"registered": 6, "dispatched": 6, "unloaded": True}
+    assert json.loads(done.stdout) == {"registered": 8, "dispatched": 8, "unloaded": True}
 
 
 def test_calling_session_uses_documented_gateway_accessor(monkeypatch):
@@ -238,3 +238,47 @@ def test_refresh_failure_is_reported_not_swallowed(tmp_path, monkeypatch):
     finally:
         for stop in cleanup:
             stop()
+
+
+def test_session_finalize_hook_ends_that_sessions_jobs_and_says_so(tmp_path, monkeypatch):
+    from agent import secret_scope
+    from gateway.session_context import scoped_session_key
+    monkeypatch.setattr(secret_scope, "get_secret", lambda name, default: "dummy")
+    registered, hooks, sections, cleanup = {}, {}, {}, []
+    mock = PocketMock()
+    with mock.serve() as url:
+        monkeypatch.setenv("HERMES_NOTIFY_TEST_URL", url + "/api/agent")
+        ctx = SimpleNamespace(state=SimpleNamespace(data_dir=tmp_path), get_config=lambda k, d=None: {"enabled": True}.get(k, d),
+                              register_tool=lambda **kw: registered.update({kw["name"]: kw}),
+                              register_hook=lambda n, fn: hooks.update({n: fn}), register_approval_transport=lambda *_: None,
+                              register_system_prompt_section=lambda id, content, **kw: sections.update({id: (content, kw)}),
+                              on_unload=cleanup.append)
+        load_plugin().register(ctx)
+        try:
+            content, options = sections["hermes-notify.rules"]
+            assert "notify_ask" in content and options["max_chars"] >= len(content)
+            with scoped_session_key("route-f"):
+                start = json.loads(registered["notify_progress"]["handler"](
+                    {"action": "start", "title": "Long build", "status": "Compiling"}, session_id="sid-f"))
+            assert start["ok"], start
+            import time
+            deadline = time.monotonic() + 10
+            while not mock.activities and time.monotonic() < deadline:  # The start is delivered in the background.
+                time.sleep(0.05)
+            assert hooks["on_session_finalize"](session_id="someone-else", platform="cli") is None
+            message = hooks["on_session_finalize"](session_id="sid-f", platform="cli")
+            assert message == "Notify: marked 1 job on your phone as stopped."
+            ended = [a for a in mock.activities.values() if a["status"] == "ended"]
+            assert ended and ended[0]["props"]["status"] == "Stopped: session ended"
+        finally:
+            for stop in cleanup:
+                stop()
+
+
+def test_older_hermes_without_approval_transport_still_registers_messaging(tmp_path, caplog):
+    tools = []
+    ctx = SimpleNamespace(get_config=lambda k, d: d, register_tool=lambda **kw: tools.append(kw["name"]),
+                          register_hook=lambda *a: None, on_unload=lambda fn: None)
+    load_plugin().register(ctx)
+    assert {"notify_send", "notify_ask", "notify_progress"} <= set(tools)
+    assert "hermes update" in caplog.text

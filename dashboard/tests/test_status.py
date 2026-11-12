@@ -45,6 +45,18 @@ def sample():
     }
 
 
+def projected(value):
+    """What the route returns for a snapshot: optional fields from newer runtimes get defaults."""
+    import copy
+    value = copy.deepcopy(value)
+    for run in value["runs"]:
+        run.setdefault("kind", "release")
+    for delivery in value["deliveries"]:
+        delivery.setdefault("at", None)
+    value.setdefault("pendingQuestions", [])
+    return value
+
+
 def write(directory, payload):
     from hermes_cli.plugins_state import PluginState
     path = directory / "plugin-data" / PluginState("hermes-notify").data_dir.name / "status.json"
@@ -72,7 +84,7 @@ def test_contract_read_only_and_extra_fields_are_not_exposed(api):
     before = path.read_bytes(), path.stat().st_mtime_ns
     response = client.get("/api/plugins/hermes-notify/status")
     assert response.status_code == 200
-    assert response.json() == sample()
+    assert response.json() == projected(sample())
     assert response.headers["cache-control"] == "no-store"
     assert (path.read_bytes(), path.stat().st_mtime_ns) == before
     for verb in (client.post, client.put, client.delete, client.patch):
@@ -86,7 +98,7 @@ def test_global_delivery_error_preserves_all_workspace_status(api):
     write(directory, value)
     response = client.get("/api/plugins/hermes-notify/status")
     assert response.status_code == 200
-    assert response.json() == value
+    assert response.json() == projected(value)
     value["deliveries"][-1]["project"] = "../another-profile"
     write(directory, value)
     assert client.get("/api/plugins/hermes-notify/status").status_code == 503
@@ -205,4 +217,35 @@ def test_unconfigured_snapshot_is_valid_and_still_read_only(api):
     value = sample()
     value.update(configured=False, runs=[], pending=[], deliveries=[])
     write(directory, value)
-    assert client.get("/api/plugins/hermes-notify/status").json() == value
+    assert client.get("/api/plugins/hermes-notify/status").json() == projected(value)
+
+
+def test_pending_questions_job_kind_and_delivery_time_are_projected(api):
+    module, client, directory = api
+    payload = sample()
+    payload["runs"][0]["kind"] = "job"
+    payload["deliveries"][0]["at"] = "2026-11-12T10:00:00Z"
+    payload["pendingQuestions"] = [{"interactionId": "int_1", "project": "demo", "kind": "yes_no",
+                                    "title": "Restart workers?", "deadline": 1794477600.5, "extra": "dropped"}]
+    write(directory, payload)
+    body = client.get("/api/plugins/hermes-notify/status").json()
+    assert body["runs"][0]["kind"] == "job"
+    assert body["deliveries"][0]["at"] == "2026-11-12T10:00:00Z"
+    assert body["pendingQuestions"] == [{"interactionId": "int_1", "project": "demo", "kind": "yes_no",
+                                         "title": "Restart workers?", "deadline": 1794477600.5}]
+
+
+def test_snapshot_from_an_older_runtime_still_reads(api):
+    _, client, directory = api
+    write(directory, sample())  # 0.2.x: no kind, no delivery time, no pendingQuestions.
+    body = client.get("/api/plugins/hermes-notify/status").json()
+    assert body["runs"][0]["kind"] == "release" and body["pendingQuestions"] == []
+    assert body["deliveries"][0]["at"] is None
+
+
+def test_malformed_pending_question_hides_the_snapshot(api):
+    _, client, directory = api
+    payload = sample()
+    payload["pendingQuestions"] = [{"interactionId": "../x", "project": "demo", "kind": "yes_no", "title": "x", "deadline": 1}]
+    write(directory, payload)
+    assert client.get("/api/plugins/hermes-notify/status").status_code == 503

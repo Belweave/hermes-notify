@@ -3,12 +3,16 @@
 import time
 
 from .client import NotifyError, identifier
+from .jobs import end_label
 from .workspace import TERMINAL, digest, notify_clip
+
+STALE_AFTER_SECONDS = 1800  # The phone marks progress stale when Hermes stops reporting.
 
 
 class Progress:
     def _deliver_progress(self, run):
-        if self.stopped.is_set():
+        # The internal run behind plain notify_send/notify_ask calls has no progress to show.
+        if self.stopped.is_set() or run.get("auto"):
             return
         w = run["workspace"]
         project, rid = w["project"], w["runId"]
@@ -24,7 +28,8 @@ class Progress:
                 self._sync_workspace(run)
             except NotifyError as exc:
                 self._delivery(project, "sync_failed", str(exc))
-        if not self.settings.get("progress_enabled", False):
+        # A job is an explicit request for lock-screen progress; release runs follow the setting.
+        if run.get("kind") != "job" and not self.settings.get("progress_enabled", False):
             return
         progress = self.journal.get("progress", rid, {"runId": rid, "key": self.key("activity", rid), "sequence": 0})
         state = w["status"]
@@ -39,7 +44,8 @@ class Progress:
             # A single pending event sleeps until due; no timer or polling for idle tasks.
             self.queue.submit(("progress", rid), None, delay=interval - (time.time() - progress["lastAt"]))
             return
-        props = {"status": notify_clip(state.replace("_", " ").title() if terminal or state in ("approved", "awaiting_approval") else w["stage"], 60),
+        label = end_label(run) if terminal else state.replace("_", " ").title() if state in ("approved", "awaiting_approval") else w["stage"]
+        props = {"status": notify_clip(label, 60),
                  "detail": notify_clip(w["summary"], 240) or None, "progress": w["progress"]}
         try:
             if progress.get("fallback"):
@@ -59,7 +65,8 @@ class Progress:
                     self._fallback_progress(run, progress, signature)
                     return
                 body = {"key": progress["key"], "title": notify_clip(w["name"], 80), "status": props["status"],
-                        "style": "steps", "privacyMode": "private", "accentColor": "#30D158"}
+                        "style": "standard" if run.get("kind") == "job" else "steps", "privacyMode": "private",
+                        "accentColor": "#30D158", "staleAfterSeconds": run.get("staleAfterSeconds", STALE_AFTER_SECONDS)}
                 body.update({k: v for k, v in props.items() if v is not None})
                 if self.settings.get("device_id"):
                     body["deviceIds"] = [self.settings["device_id"]]
@@ -83,14 +90,15 @@ class Progress:
                 if terminal:
                     body.update(symbol="success" if state == "shipped" else "warning", dismissAfterSeconds=60)
                 else:
-                    body.update(title=notify_clip(w["name"], 80), priority="high" if changed_state else "normal")
+                    body.update(title=notify_clip(w["name"], 80), priority="high" if changed_state else "normal",
+                                staleAfterSeconds=run.get("staleAfterSeconds", STALE_AFTER_SECONDS))
                 pending = progress.get("pending")
                 if pending:
                     current = self.api.get_activity(progress["activityId"]).get("activity", {})
                     if current.get("id") != progress["activityId"]:
                         raise NotifyError("Activity read returned a different identity")
                     expected = pending["body"]["ifSequence"]
-                    if current.get("sequence") == expected + 1 and all(current.get("props", {}).get(k) == v for k, v in pending["body"].items() if k not in ("ifSequence", "priority", "dismissAfterSeconds")):
+                    if current.get("sequence") == expected + 1 and all(current.get("props", {}).get(k) == v for k, v in pending["body"].items() if k not in ("ifSequence", "priority", "dismissAfterSeconds", "staleAfterSeconds")):
                         progress.update(sequence=current["sequence"], signature=pending["signature"], state=pending["state"], lastAt=time.time())
                         del progress["pending"]
                         self.journal.put("progress", rid, progress)
@@ -142,7 +150,11 @@ class Progress:
         w = run["workspace"]
         progress["fallback"] = True
         self.journal.put("progress", w["runId"], progress)
-        body = {"title": notify_clip(w["name"], 80), "body": w["summary"] or w["stage"], "project": w["project"]}
+        if w["status"] in TERMINAL:
+            text = end_label(run) + (": " + w["summary"] if w["summary"] else "")
+        else:
+            text = w["summary"] or w["stage"]
+        body = {"title": notify_clip(w["name"], 80), "body": text, "project": w["project"]}
         if w["appId"]:
             body["appId"] = w["appId"]
         if self.settings.get("device_id"):

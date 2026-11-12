@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from .bridge import ApprovalBridge, TransportUnavailable
 from .client import API_BASE, NotifyClient, NotifyError, WorkerClient, https_url, identifier
 from .inbound import Inbound
+from .jobs import Jobs
 from .journal import Journal, encode
 from .ledger import Ledger
 from .publisher import Publisher
@@ -29,6 +30,8 @@ NOT_SET_UP = ("Notify is not turned on in this Hermes process. If the user has n
               "this process is stale: ask them to restart Hermes (and the gateway, if one is running). "
               "notify_status shows lastConfigError.")
 NO_KEY = "No Notify key is saved. Ask the user to run `hermes notify setup` in a terminal"
+# Identical content without an idempotency_key counts as a retry of the same write only this long.
+RETRY_WINDOW_SECONDS = 600
 
 
 def _profile_home():
@@ -105,7 +108,7 @@ class Session:
         return bool(self.key and self.key == run.get("sessionKey"))
 
 
-class Runtime(Publisher, Progress, Replies):
+class Runtime(Publisher, Progress, Replies, Jobs):
     def __init__(self, data_dir, *, enabled=False, token="", publish_token="", settings=None,
                  test_url=None, test_worker_url=None, inject=None, webhook_secret=""):
         self.settings = settings if settings is not None else {}
@@ -177,6 +180,7 @@ class Runtime(Publisher, Progress, Replies):
         if not (self.settings.get("allow_reply_injection") is True and self.inject and row["sessionKey"]):
             return
         attributed = {k: row[k] for k in ("id", "source", "project", "runId", "kind", "status", "text", "createdAt", "stale")}
+        attributed["proceed"] = self._proceed(row)
         attributed["trustedAsInstruction"] = False
         row["injectionAttempted"] = True
         self.journal.put("reply", row["id"], row)
@@ -191,6 +195,14 @@ class Runtime(Publisher, Progress, Replies):
         if row["injected"]:
             row["returned"] = True
         self.journal.put("reply", row["id"], row)
+
+    def _unlocked(self, operation):
+        """Run a long network wait without holding the tool lock held once by call()."""
+        self.lock.release()
+        try:
+            return operation()
+        finally:
+            self.lock.acquire()
 
     def config_error(self, name):
         """A refresh failed: keep the last configuration, but make the failure visible."""
@@ -261,12 +273,11 @@ class Runtime(Publisher, Progress, Replies):
         current = self.journal.get("run", mapping["runId"]) if mapping.get("runId") else None
         if current and current["workspace"]["status"] not in TERMINAL and not current.get("auto"):
             raise NotifyError("Another session owns this project's active release; use a different project name", status=409)
+        # A lightweight run: no Live Activity, no hosted workspace, and a later real release
+        # from any session may replace it.
         self.release({"action": "begin", "project": project, "version": "updates", "name": project,
-                      "stage": "Updates"}, session)
-        run = self._run({"project": project}, session)
-        run["auto"] = True  # A later real release from this session may replace it.
-        self.journal.put("run", run["workspace"]["runId"], run)
-        return run
+                      "stage": "Updates"}, session, auto=True)
+        return self._run({"project": project}, session)
 
     def _save_run(self, run):
         validate(run["workspace"])
@@ -295,7 +306,8 @@ class Runtime(Publisher, Progress, Replies):
                 if not session.identity:
                     raise NotifyError("A host-provided session is required", status=403)
                 methods = {"notify_release": self.release, "notify_publish_app": self.publish,
-                           "notify_send": self.send, "notify_ask": self.ask, "notify_replies": self.replies}
+                           "notify_send": self.send, "notify_ask": self.ask, "notify_replies": self.replies,
+                           "notify_progress": self.progress, "notify_cancel": self.cancel}
                 result = methods[name](args, session)
                 self.snapshot()
                 return {"ok": True, **result}
@@ -310,7 +322,7 @@ class Runtime(Publisher, Progress, Replies):
             self._background_failure("Invalid input or local storage unavailable")
             return {"ok": False, "error": "Invalid input or local storage unavailable"}
 
-    def release(self, args, session):
+    def release(self, args, session, *, auto=False):
         action = args.get("action")
         project = slug(args.get("project"))
         if action == "begin":
@@ -337,9 +349,12 @@ class Runtime(Publisher, Progress, Replies):
                  "updatedAt": now(), "appId": mapping.get("appId"), "approval": None}
             w.update({k: args[k] for k in EDITABLE if k in args})
             run = {"workspace": validate(w), "sessionKey": session.key, "sessionId": session.id}
+            if auto:
+                run["auto"] = True
             self._save_run(run)
             self.journal.put("project", project, mapping | {"project": project, "runId": rid})
-            self.queue.submit(("progress", rid), None)
+            if not auto:
+                self.queue.submit(("progress", rid), None)
             return {"workspace": w}
         run = self._run(args, session)
         w = run["workspace"]
@@ -404,6 +419,33 @@ class Runtime(Publisher, Progress, Replies):
         self.journal.put("intent", key, intent)
         return result
 
+    def _logical_key(self, kind, run, args, body, fresh):
+        """The idempotency key for one tool call.
+
+        An explicit idempotency_key is used as given: the caller says it is the same event.
+        Without one, identical content repeats the earlier write only while ``fresh(recent,
+        intent)`` holds (a retried tool call, a restarted gateway); after that it is a new
+        message or question with a new key. Content alone never revives an old answer.
+        """
+        if args.get("idempotency_key"):
+            return args["idempotency_key"]
+        rid, base = run["workspace"]["runId"], digest(body)
+        slot = self.key("recent-" + kind, [rid, base])
+        recent = self.journal.get("recent", slot) or {"logical": base, "at": 0}
+        intent = self.journal.get("intent", self.key(kind, [rid, recent["logical"]]))
+        if intent is None or (recent["at"] and fresh(recent, intent)):
+            logical = recent["logical"]
+            at = recent["at"] or time.time()
+        else:
+            import uuid
+            logical, at = base + "-" + uuid.uuid4().hex[:12], time.time()
+        self.journal.put("recent", slot, {"logical": logical, "at": at})
+        return logical
+
+    def _already_written(self, kind, run, logical):
+        intent = self.journal.get("intent", self.key(kind, [run["workspace"]["runId"], logical]))
+        return bool(intent and intent["phase"] == "done")
+
     def _notification(self, run, body, logical_key):
         result = self._write_once("notification", body, run, logical_key, self.api.send)
         notification = result.get("notification", {})
@@ -447,14 +489,21 @@ class Runtime(Publisher, Progress, Replies):
                     raise NotifyError("App destination must stay on the registered origin", status=400)
         if self.settings.get("device_id"):
             body["deviceIds"] = [self.settings["device_id"]]
-        return self._notification(run, body, args.get("idempotency_key") or digest(body))
+        logical = self._logical_key("notification", run, args, body,
+                                    lambda recent, _intent: time.time() - recent["at"] < RETRY_WINDOW_SECONDS)
+        duplicate = self._already_written("notification", run, logical)
+        result = self._notification(run, body, logical)
+        if duplicate:
+            # The same message was already sent moments ago (or with this idempotency_key).
+            result["duplicate"] = True
+        return result
 
     def _delivery(self, project, state, message):
         try:
             project = slug(project)
         except NotifyError:
             project = ""
-        record = {"project": project, "state": state, "message": message[:500]}
+        record = {"project": project, "state": state, "message": message[:500], "at": now()}
         self.journal.put("delivery", project, record)
         self.snapshot()
 
@@ -479,7 +528,8 @@ class Runtime(Publisher, Progress, Replies):
                 if record.get("state") == "not_configured":
                     self.journal.delete("delivery", record["project"])
         value = {"schemaVersion": 1, "configured": configured,
-                 "runs": [r["workspace"] for r in self.journal.all("run")[:10]],
+                 "runs": [r["workspace"] | {"kind": r.get("kind", "release")}
+                          for r in self.journal.all("run") if not r.get("auto")][:10],
                  "pending": [{"requestId": a["requestId"], "title": a["title"], "status": a["status"]}
                              for a in self.journal.all("approval")[:30]],
                  "pendingQuestions": self.pending_questions(),

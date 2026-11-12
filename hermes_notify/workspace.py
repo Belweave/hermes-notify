@@ -39,7 +39,7 @@ def notify_clip(value, limit):
 
 
 DEFAULT_PROJECT = "hermes"
-PROJECT_TOOLS = {"notify_send", "notify_ask", "notify_replies"}
+PROJECT_TOOLS = {"notify_send", "notify_ask", "notify_replies", "notify_progress", "notify_cancel"}
 
 
 def normalize_project(tool, args):

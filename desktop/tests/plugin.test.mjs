@@ -213,3 +213,23 @@ test('embedded Paper Mono is identical to the official vendored file', () => {
   assert.deepEqual(Buffer.from(encoded, 'base64'), original);
   assert.match(source, /font-weight:100 800/);
 });
+
+test('pending questions, jobs and delivery times are shown honestly', async () => {
+  const app = await harness();
+  const job = { schemaVersion: 1, project: 'hermes', runId: 'job_1', revision: 2, name: 'Test suite', version: 'job', kind: 'job',
+    status: 'running', stage: 'Running tests', summary: '', progress: null, checks: [], artifacts: [], notes: '',
+    updatedAt: '2026-11-12T10:00:00Z', appId: null, approval: null };
+  app.setQuery({ isError: false, data: { ...emptySnapshot(), runs: [job],
+    pendingQuestions: [{ interactionId: 'int_1', project: 'hermes', kind: 'yes_no', title: 'Restart workers?', deadline: 1794477600 }],
+    deliveries: [{ project: 'hermes', state: 'accepted', message: 'Notify receipt recorded', at: '2026-11-12T10:00:00Z' }] } });
+  const out = text(app.render());
+  assert.match(out, /Pending decisions \(1\)/);
+  assert.match(out, /Restart workers\?/);
+  assert.match(out, /Yes or no: waiting for a phone answer/);
+  assert.match(out, /hermes \/ job/);
+  assert.doesNotMatch(out, /revision 2/);
+  assert.match(out, /Notify is set up for this profile/);
+  assert.match(out, /At /);
+  const interval = app.queries.at(-1).refetchInterval;
+  assert.equal(interval({ state: { status: 'success', data: { ...emptySnapshot(), pendingQuestions: [{}] } } }), 15000);
+});

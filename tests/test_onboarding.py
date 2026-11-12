@@ -90,3 +90,39 @@ def test_approvals_wait_for_a_phone(monkeypatch, capsys):
     assert values == {} and "approvals on" in capsys.readouterr().out
     onboarding._setup_approvals([{"id": "d"}], skip=True)
     assert values == {}
+
+
+def test_every_setup_failure_names_its_fix(monkeypatch, capsys):
+    from hermes_notify.client import explain
+    cases = {401: "--reauth", 403: "--reauth", 429: "Wait a minute", 503: "Try again in a few minutes"}
+    for status, fix in cases.items():
+        message = onboarding._failure(status, {"required": ["devices:read"]}, "Could not check your phones")
+        assert fix in message and "Could not check your phones" in message
+        assert "token" not in message.lower() or status == 401
+    assert "devices:read" in onboarding._failure(403, {"required": ["devices:read"]}, "x")
+    for status, fix in {401: "--reauth", 403: "--reauth", 429: "Retry", 502: "Retry"}.items():
+        assert fix in explain(status, ("notifications:send",), 30)
+
+
+def test_test_command_explains_a_missing_phone(monkeypatch, capsys):
+    monkeypatch.setattr(onboarding, "_saved_token", lambda: "ntf_saved")
+    monkeypatch.setattr(onboarding, "_request", lambda method, url, **kw:
+                        (200, {"devices": []}) if url.endswith("/devices") else (201, {"accepted": 0, "queued": 0}))
+    assert onboarding.cmd_test(None, SimpleNamespace()) == 1
+    out = capsys.readouterr().out
+    assert "No phone is connected" in out and onboarding.IOS_URL in out and "ntf_saved" not in out
+
+
+def test_status_reports_unreachable_notify_in_one_line(monkeypatch, capsys):
+    monkeypatch.setattr(onboarding, "_saved_token", lambda: "ntf_saved")
+    monkeypatch.setattr(onboarding, "readiness", lambda ctx: (True, True, True))
+    monkeypatch.setattr(onboarding, "approval_transport", lambda: "notify")
+
+    def offline(*_a, **_k):
+        raise onboarding.SetupError("Could not reach notify.belweave.ai. Check your internet connection and try again.")
+    monkeypatch.setattr(onboarding, "_request", offline)
+    ctx = SimpleNamespace(get_config=lambda k, d=None: d)
+    assert onboarding.cmd_status(ctx, SimpleNamespace()) == 1
+    out = capsys.readouterr().out
+    assert "Phones:      unknown - Could not reach" in out and "Plugin:      hermes-notify" in out
+    assert "ntf_saved" not in out

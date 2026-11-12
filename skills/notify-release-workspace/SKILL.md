@@ -1,7 +1,7 @@
 ---
 name: notify-release-workspace
 description: Manage releases, phone approvals, and replies with Notify.
-version: 0.2.3
+version: 0.3.0
 author: Preetham Kyanam (pkyanam)
 license: MIT
 ---
@@ -39,8 +39,10 @@ This requires the user's existing Hermes model configuration. It is a manual usa
 | `notify_release` | Begin, update or inspect a run; finish with an observed action result. |
 | `notify_publish_app` | Publish the supplied workspace template or register an existing HTTPS App. |
 | `notify_send` | Send an authorized milestone to the project's inbox. |
-| `notify_ask` | Ask a business question or request text input. |
-| `notify_replies` | Collect phone answers to `notify_ask` (required when `notify_ask` returns `mustPoll: true`) and replies for your release. |
+| `notify_ask` | Ask a business question or request text input. Continue only when the result says `proceed: true`. |
+| `notify_replies` | Collect phone answers to `notify_ask` (with `wait_seconds` 25 while `mustPoll: true`) and replies for your release. |
+| `notify_cancel` | Withdraw a question that is no longer needed. |
+| `notify_progress` | Lock-screen progress for a long job that is not a release (tests, a migration). |
 
 ## Procedure
 
@@ -60,7 +62,8 @@ This requires the user's existing Hermes model configuration. It is a manual usa
 - Provider acceptance is not proof the phone displayed an update. Live Activity support and delivery must be checked on the actual phone.
 - Report only App or artifact links returned by tools. If state contains an App ID without a URL, direct the user to its Notify notification.
 - Cron, gateway and other unattended runs must respect host policy and bounded timeouts. A missing reply is not consent.
-- `notify_ask` returns `mustPoll: true` while the answer is pending. Nothing pushes the answer to you unless the operator set up inbound webhooks: call `notify_replies` for that project before you finish, and check `pendingQuestions` in `notify_status`.
+- `notify_ask` returns `mustPoll: true` while the answer is pending. Nothing pushes the answer to you unless the operator set up inbound webhooks: call `notify_replies` with `wait_seconds` 25 for that project until it is answered or your own deadline passes, then `notify_cancel` it. No answer means do not proceed.
+- Make each prompt stand alone: who is asking, exactly what happens on approve, and what happens otherwise. Never put credentials, webhook URLs or private customer data on the phone.
 - "Notify is not turned on in this Hermes process" while `hermes notify status` says the plugin is on means this process is stale. Check `lastConfigError` in `notify_status`, then ask the user to restart Hermes (and the gateway, if one runs). Do not ask them to run setup again.
 
 ## Verification

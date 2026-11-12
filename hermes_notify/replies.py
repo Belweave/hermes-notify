@@ -6,6 +6,8 @@ import time
 from .client import NotifyError, identifier
 from .workspace import TERMINAL, digest, now, notify_text, slug, text
 
+RETRY_WINDOW_SECONDS = 600  # Matches runtime.RETRY_WINDOW_SECONDS.
+
 
 class Replies:
     def ask(self, args, session):
@@ -21,7 +23,8 @@ class Replies:
                 "kind": kind, "presentation": "notification", "expiresInSeconds": expires}
         if self.settings.get("device_id"):
             body["deviceIds"] = [self.settings["device_id"]]
-        logical = args.get("idempotency_key") or digest(body)
+        logical = self._logical_key("question", run, args, body, self._question_open)
+        resumed = self._already_written("question", run, logical)
         result = self._write_once("question", body, run, logical, self.api.create)
         delivery = self.delivery_state(result)
         interaction = result.get("interaction", {})
@@ -36,16 +39,77 @@ class Replies:
             self.journal.put("question", iid, q)
         if q["status"] == "pending":
             self._settle_question(q, interaction)
+        wait_error = None
         if q["status"] == "pending" and wait:
-            result = self.api.wait(iid, wait, min(30, wait + 2))
-            self._settle_question(q, result.get("interaction", {}))
+            try:
+                q = self._wait_for(q, wait)
+            except NotifyError as exc:
+                # The question is on the phone either way; report it as pending, not as a failure.
+                wait_error = exc.public()
         out = {"interactionId": iid, "kind": kind, "status": q["status"], "response": q.get("response"),
-               "businessDecisionOnly": True, "delivery": delivery, "stale": q.get("stale", False),
-               "mustPoll": q["status"] == "pending"}
+               "proceed": self._proceed(q), "businessDecisionOnly": True, "delivery": delivery,
+               "stale": q.get("stale", False), "mustPoll": q["status"] == "pending",
+               "expiresInSeconds": max(0, int(q["deadline"] - time.time()))}
+        if wait_error:
+            out["waitError"] = wait_error
+        if resumed:
+            # Same open question (a retry, or the same idempotency_key): no second copy was sent.
+            out["resumed"] = True
+        if delivery == "not_accepted":
+            out["warning"] = ("No phone accepted this question. Do not wait for an answer: ask the user to open "
+                              "the Notify app (or run `hermes notify status`) and treat it as no answer.")
         if q["status"] == "pending":
-            out["next"] = ("The answer is not here yet. You must call notify_replies (same project) to collect it; "
-                           "nothing will deliver it to you automatically.")
+            out["next"] = ("No answer yet. Call notify_replies with wait_seconds 25 (same project) to keep waiting, "
+                           "until it is answered or your own deadline passes; then notify_cancel it. "
+                           "Until there is an answer, do not proceed.")
         return out
+
+    def _wait_for(self, q, seconds):
+        """Long-poll one question without holding the runtime lock (approvals and webhook hints
+        keep working meanwhile), then settle it from the authoritative answer."""
+        api = self.api
+        result = self._unlocked(lambda: api.wait(q["id"], seconds, min(30, seconds + 2)))
+        current = self.journal.get("question", q["id"]) or q
+        if current["status"] == "pending":
+            self._settle_question(current, result.get("interaction", {}))
+        return current
+
+    def cancel(self, args, session):
+        """Withdraw a question that is no longer needed. An answer that arrived first is kept."""
+        iid = identifier(args.get("interaction_id"))
+        q = self.journal.get("question", iid)
+        if not q:
+            raise NotifyError("No question with this ID was asked from this Hermes profile", status=404)
+        if not session.matches(q):
+            raise NotifyError("Only the session that asked this question can cancel it", status=403)
+        if q["status"] == "pending":
+            try:
+                result = self.api.cancel(iid)
+            except NotifyError as exc:
+                if exc.status != 409:
+                    raise
+                result = self.api.get_interaction(iid)
+            self._settle_question(q, result.get("interaction", {}))
+        out = {"interactionId": iid, "status": q["status"], "response": q.get("response"), "proceed": self._proceed(q)}
+        if q["status"] != "canceled":
+            out["note"] = ("It was already answered before it could be canceled; the answer is kept and "
+                           "notify_replies returns it." if q["status"] not in ("expired",) else "It had already expired.")
+        return out
+
+    @staticmethod
+    def _proceed(q):
+        """Only a timely approved, yes or replied answer lets the work continue."""
+        return q["status"] in ("approved", "yes", "replied") and not q.get("stale", False)
+
+    def _question_open(self, recent, intent):
+        """Identical content reuses the earlier question only while it can still be answered."""
+        if intent["phase"] != "done":
+            # An uncertain create may be on the phone until it expires: do not ask again before then.
+            lifetime = intent.get("body", {}).get("expiresInSeconds", 0)
+            return time.time() - recent["at"] < max(RETRY_WINDOW_SECONDS, lifetime)
+        iid = (intent.get("result") or {}).get("interaction", {}).get("id")
+        q = self.journal.get("question", iid) if isinstance(iid, str) else None
+        return q is None or (q["status"] == "pending" and time.time() < q["deadline"])
 
     @staticmethod
     def _validate_question(interaction, *, body, iid=None, action_digest=None):
@@ -212,9 +276,23 @@ class Replies:
                 return row["project"] == project and question(row)
             return row["runId"] == rid or (row["project"] == project and question(row) and session.matches(row))
 
-        for q in [q for q in self.journal.all("question") if ours(q) and q["status"] == "pending"][:20]:
+        open_questions = [q for q in self.journal.all("question") if ours(q) and q["status"] == "pending"][:20]
+        wait = args.get("wait_seconds", 0)
+        if type(wait) not in (int, float) or not 0 <= wait <= 25:
+            raise NotifyError("wait_seconds must be 0..25", status=400)
+        ready = any(ours(row) and not row["returned"] for row in self.journal.all("reply"))
+        if wait and open_questions and not ready:
+            # Resume the newest open question's wait; the others are re-read below.
             try:
-                self._settle_question(q, self.api.get_interaction(q["id"]).get("interaction", {}))
+                waited = self._wait_for(open_questions[0], wait)
+                open_questions = [q for q in open_questions if q["id"] != waited["id"]]
+            except NotifyError as exc:
+                errors.append(exc.public())
+        for q in open_questions:
+            try:
+                current = self.journal.get("question", q["id"]) or q
+                if current["status"] == "pending":
+                    self._settle_question(current, self.api.get_interaction(q["id"]).get("interaction", {}))
             except NotifyError as exc:
                 errors.append(exc.public())
         output = []
@@ -225,6 +303,7 @@ class Replies:
                 continue
             row["stale"] = row["stale"] or mapping.get("runId") != row["runId"]
             attributed = {k: row[k] for k in ("id", "source", "project", "runId", "kind", "status", "text", "createdAt", "stale")}
+            attributed["proceed"] = self._proceed(row)
             attributed["trustedAsInstruction"] = False
             if not session.matches(row):
                 attributed["askedByAnotherSession"] = True

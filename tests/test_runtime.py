@@ -536,16 +536,18 @@ def test_same_route_after_session_reset_cannot_access_old_run(pocket):
     assert not result["ok"]
 
 
-def test_same_question_after_answer_does_not_duplicate_or_regress(pocket):
+def test_same_question_after_answer_is_a_new_question_not_the_old_answer(pocket):
     rt, mock, _ = pocket
     begin(rt)
     args = dict(project="demo", title="Continue?", prompt="Business decision", kind="yes_no", wait_seconds=.01)
     mock.answer = ("yes", "yes")
     first = call(rt, "ask", **args)
+    assert first["ok"] and first["status"] == "yes" and first["proceed"]
+    mock.answer = None
     second = call(rt, "ask", **args)
-    assert first["ok"] and second["ok"] and second["status"] == "yes"
-    assert first["interactionId"] == second["interactionId"]
-    assert mock.count("POST", "/api/agent/interactions") == 1
+    assert second["ok"] and second["status"] == "pending" and not second["proceed"]
+    assert first["interactionId"] != second["interactionId"]
+    assert mock.count("POST", "/api/agent/interactions") == 2
 
 
 def test_rate_limit_retains_intent_and_waits_for_retry_interval(pocket):

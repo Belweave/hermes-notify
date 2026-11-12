@@ -1,10 +1,6 @@
 # Hermes Pocket
 
-Keep a Hermes release task on your phone through Notify by belweave. Open its release workspace, follow progress in a Live Activity, answer a precise approval, and return to the result after the release action finishes.
-
-The local implementation includes a complete release App, a configurable Cloudflare Worker, six Hermes tools, native approval transport, written replies, signed webhook receipt, and an optional Desktop/Webapp companion. Notify's CLI is optional. The Python runtime has no third-party dependencies, model calls, or shell commands.
-
-The full workflow passes locally with real Hermes, local workerd, and synthetic Notify responses. A separate authorized phone test also passed: one real approval returned Hermes's `once` decision. **Worker deployment, App sign-in, deep links and live progress remain unverified.** See [verification](docs/VERIFICATION.md) and the [85-second demo plan](docs/DEMO.md).
+Your Hermes agent on your phone, through Notify by belweave: a message when work finishes, a question it waits on until you answer, a long job's progress on the lock screen, and Approve / Deny for the commands Hermes needs permission to run.
 
 ## Quick start (macOS, Linux, Windows)
 
@@ -22,11 +18,35 @@ hermes notify setup
 4. **Test.** It sends "Hermes is connected" to your phone.
 5. **Approvals.** Once a phone is connected, Hermes's command approvals go to your phone as Approve / Deny (`security.approval.transport: notify`). If Notify can't be reached, Hermes asks in the terminal as usual (`security.approval.transport_fallback: builtin`; set it to `deny` to refuse instead). Another approval transport you selected is left alone. Skip this step with `--no-approvals`.
 
-It works right away, including in Hermes sessions that are already open. Say, for example, "Send me a Notify message when the tests finish" or "Ask me on my phone whether to deploy and wait for my answer."
+It works right away, including in Hermes sessions that are already open. Each new session also gets a short section in its system prompt with Notify's rules, so Hermes knows when to message, when to ask, and when to stay quiet.
 
-Other commands: `hermes notify status` (key, plugin, approvals and phones), `hermes notify test` (send a test), `hermes notify approvals on|off` (phone or terminal approvals), `hermes notify setup --reauth` (replace the key).
+## What to ask Hermes
 
-`notify_send`, `notify_ask` and `notify_replies` work on their own; `project` is optional and defaults to `hermes`. The Cloudflare Worker, release workspaces and Live Activities are optional extras.
+| You say | Hermes uses | On your phone |
+| --- | --- | --- |
+| "Tell me on my phone when the tests finish." | `notify_send` | One message with the result. |
+| "Run the migration and keep me posted on my phone." | `notify_progress` | A Live Activity (Android: a progress notification) that updates at milestones and always ends with the real outcome. |
+| "Ask me on my phone before you deploy, and wait for my answer." | `notify_ask`, then `notify_replies` | Approve / Deny with a prompt that says what happens on each. Hermes continues only on Approve; Deny, no answer or expiry stop it. |
+| (Hermes needs permission for a command) | Hermes's approval prompt | Approve once / Deny. No answer before the deadline denies. |
+
+Other commands: `hermes notify status` (key, plugin, approvals, phones, how answers arrive), `hermes notify test` (send a test), `hermes notify approvals on|off` (phone or terminal approvals), `hermes notify setup --reauth` (replace the key).
+
+`notify_send`, `notify_ask`, `notify_progress` and `notify_replies` work on their own; `project` is optional and defaults to `hermes`. The Cloudflare Worker and release workspaces are optional extras.
+
+## When something goes wrong
+
+Every failure gives one sentence and its fix; tokens are never printed.
+
+| What you see | Fix |
+| --- | --- |
+| "Notify is not turned on in this Hermes process" | Run `hermes notify setup`. If `hermes notify status` already says the plugin is on, restart Hermes (and `hermes gateway`). |
+| "No Notify key is saved" | Run `hermes notify setup`. |
+| "Notify rejected the saved key (HTTP 401)" | The key expired (keys last 90 days) or was revoked: `hermes notify setup --reauth`. |
+| "The saved Notify key lacks a permission (HTTP 403)" | `hermes notify setup --reauth` approves a key with every permission this version needs. |
+| "No phone is connected yet" / `delivery: not_accepted` | Install the Notify app, sign in with the same account and allow notifications, then `hermes notify test`. |
+| "Could not reach Notify" / "temporarily unavailable" | Retry later. A retried call never sends a second copy. |
+| `hermes notify status` shows an old `Plugin:` version | `hermes plugins update hermes-notify`. |
+| Log: "This Hermes version cannot send command approvals to Notify" | `hermes update`. Messages, questions and progress keep working meanwhile. |
 
 The Python runtime uses only the standard library and runs the same on macOS, Linux and Windows. CI runs the test suite on all three.
 
@@ -43,10 +63,12 @@ hermes notify webhooks on --url https://your-tunnel.example.com   # anywhere els
 This creates a Notify reply webhook (events: answered, expired, canceled), saves its signing secret
 as `NOTIFY_WEBHOOK_SECRET` in the profile `.env`, sets `inbound_webhook_port`, and allows the plugin
 to inject turns (`allow_reply_injection`, `plugins.entries.hermes-notify.allow_gateway_injection`).
-Restart Hermes and the gateway so the running process starts listening.
+Running Hermes processes start listening at their next Notify call; restart the gateway to listen
+right away. If another Hermes command holds the port for a moment, the gateway keeps retrying
+every 15 seconds and takes over when it is free.
 
 Each delivery is verified (`X-Notify-Signature`, HMAC-SHA256 of `"<t>.<body>"`, 5-minute replay
-window) and treated only as a hint: the plugin re-reads the interaction from the Notify API before
+window, at most one minute of clock skew into the future) and treated only as a hint: the plugin re-reads the interaction from the Notify API before
 recording it, then injects the answer into the Hermes session that asked, labelled as untrusted
 input, never as permission. The listener binds `127.0.0.1` by default; expose it through a tunnel
 or `boat host self <port> --public --localhost`. `notify_status` shows `inboundWebhook.listening`. Turn it off with
@@ -99,12 +121,16 @@ Results go to `.local/demo/<timestamp>-<answer>/`: `summary.json`, `workspace.js
 | --- | --- |
 | `notify_release` | Begin a version, update measured stages, inspect state, and record an explicit release-action result. |
 | `notify_publish_app` | Publish the release workspace to the configured Worker, or register an existing HTTPS App. Repeat to resume an incomplete publication. |
-| `notify_send` | Send a rich update grouped into the project's Notify inbox. |
-| `notify_ask` | Ask a business question or request a written answer. This does not authorize a Hermes command. |
-| `notify_replies` | Collect replies for the original run and session; optionally inject them when both Hermes and the operator permit it. |
-| `notify_status` | Read bounded local status and unresolved operations without network traffic. |
+| `notify_send` | Tell the user something. A retried call within ten minutes is not sent twice. |
+| `notify_ask` | Ask approve/deny, yes/no or a typed reply and wait up to 25 seconds. `proceed` is true only for a timely approve, yes or reply. Asking the same open question again resumes it; it never returns an earlier answer. This does not authorize a Hermes command. |
+| `notify_replies` | Collect answers once each; `wait_seconds` (up to 25) keeps waiting on the newest open question. Optionally injects them when both Hermes and the operator permit it. |
+| `notify_cancel` | Withdraw a question that is no longer needed. An answer that arrived first is kept. |
+| `notify_progress` | Start, update and end a long job on the lock screen. The phone marks it stale if Hermes stops reporting; a finished or stopped session ends it as stopped. |
+| `notify_status` | Read bounded local status, pending questions and unresolved operations without network traffic. |
 
-Load the bundled skill explicitly with `skill_view("hermes-notify:notify-release-workspace")`; native plugin skills are namespaced and do not appear automatically in the system prompt. Hermes's native approval transport carries the immutable command request to Notify and returns only `once` or `deny`. Request IDs, digests, scope and deadlines stay under host control. An approval alone never marks a release shipped; the caller must first execute and verify the release action, then report its result. Written replies are task input, never execution permission.
+The rules Hermes follows (ask instead of notify when it needs an answer, bound every wait, make prompts stand alone, keep secrets off the phone) are in the plugin's system prompt section and tool descriptions. For release workspaces, load the bundled skill with `skill_view("hermes-notify:notify-release-workspace")`; native plugin skills are namespaced and do not appear automatically in the system prompt. The question and progress lifecycles are in [state machines](docs/STATE-MACHINES.md).
+
+The release workflow passes locally with real Hermes, local workerd and synthetic Notify responses, and one authorized phone test returned Hermes's `once` decision from a real approval. Worker deployment, App sign-in and deep links remain unverified. See [verification](docs/VERIFICATION.md). Hermes's native approval transport carries the immutable command request to Notify and returns only `once` or `deny`. Request IDs, digests, scope and deadlines stay under host control. An approval alone never marks a release shipped; the caller must first execute and verify the release action, then report its result. Written replies are task input, never execution permission.
 
 The first publisher updates the complete release template and its data. It does not upload arbitrary generated code or deploy Worker infrastructure. Existing-URL registration validates the URL without fetching arbitrary destinations. Notify registration is separate from hosting.
 
@@ -135,6 +161,8 @@ approvals:
   timeout: 120
 ```
 
+`progress_enabled` turns on Live Activities for release workspaces; `notify_progress` jobs always show on the lock screen because the agent asked for them.
+
 Supply `NOTIFY_API_TOKEN` and `HERMES_NOTIFY_PUBLISH_TOKEN` through the intended Hermes profile's secret mechanism. The publisher value must match the Worker's `PUBLISH_TOKEN`. The plugin resolves declared secrets through Hermes's public secret API (`agent.secret_scope`) in the caller's profile context, at load and on each tool call, so a key saved by `hermes notify setup` works without a restart. It does not read another CLI's login or the OS keychain. Never place secrets in this YAML, model arguments, App assets or release notes.
 
 For the complete workflow, the Notify token needs `notifications:send`, `interactions:create`, `interactions:read`, `apps:write`, `activities:write`, and `activities:read`. Webhook setup is an optional operator operation with separate service scopes. [Integration options](docs/INTEGRATIONS.md) covers official MCP and CLI use without making either a runtime dependency.
@@ -143,7 +171,7 @@ This build is checked against Hermes source `ed1afb082eb3e46cf2edae9d8f68fb67b09
 
 ## Storage and network behavior
 
-When enabled, explicit tools send selected workspace content and updates to Notify's fixed HTTPS Agent API and the operator's Worker. Native approvals send the host-redacted action. Ordinary progress uses one lazy worker with a bounded queue and at least five seconds between routine updates. Approval and terminal changes can flush sooner. There is no idle-task poller, inbound runtime port, telemetry or runtime subprocess. Delivery receipts distinguish queued, accepted and not accepted; they do not prove the phone displayed anything.
+When enabled, explicit tools send selected workspace content and updates to Notify's fixed HTTPS Agent API and the operator's Worker. Native approvals send the host-redacted action. Ordinary progress uses one lazy worker with a bounded queue and at least five seconds between routine updates. Approval and terminal changes can flush sooner. There is no idle-task poller, telemetry or runtime subprocess. A local port is opened only after `hermes notify webhooks on`, on `127.0.0.1` by default. Delivery receipts distinguish queued, accepted and not accepted; they do not prove the phone displayed anything.
 
 Hermes owns the profile data directory. `runtime.sqlite3` retains run/session mappings, publication intents, questions and replies; `approvals.sqlite3` prevents reuse of a native request; `status.json` exposes bounded state to the optional pane. Files use mode 0600. The journal caps rows at 2,000 and records at 64 KiB. Completed data expires on startup after 30 days by default. Active and uncertain operations are kept, and capacity exhaustion fails explicitly. The status snapshot is at most 480 KiB and omits session keys and raw commands. Selected summaries, notes and reply text are persistent content; the runtime rejects its known configured credentials, but callers must still choose appropriate content.
 
@@ -158,7 +186,7 @@ Disable the plugin in its Hermes profile and reload to stop runtime work. Disabl
 | Third-party network calls | Enabled tools and approval/progress work call `https://notify.belweave.ai/api/agent` and the configured HTTPS Worker. They transmit selected workspace data, messages, replies and host-redacted approval requests. The Worker verifies sign-in keys only at `https://notify.belweave.ai/.well-known/jwks.json`. The App uses the official Notify bridge and its same-origin Worker API. User-opened artifact links may lead to other HTTPS sites. |
 | Reads outside plugin data | The runtime obtains declared credentials, configuration and session identity through Hermes public APIs; for a key saved after the process started, Hermes's public `build_profile_secret_scope` re-reads the active profile's `.env`. The optional backend uses the public profile storage API to locate this plugin's `status.json`. It does not read other plugins' data, project files, transcripts, other applications' credential files, browser profiles or the keychain. Packaged source, fonts and SDK files are ordinary installation assets. |
 | Shell commands and downloaded tools | Production Python, Worker and UI code run no shell command or CLI. The user-run `hermes notify setup` and `hermes notify approvals` commands call Hermes's own `hermes config get/set` (no shell) to read and set `security.approval.transport` and `security.approval.transport_fallback`; `hermes notify setup` also saves `NOTIFY_API_TOKEN` through Hermes's public `.env` writer. Developer setup fetches a pinned Hermes source archive from GitHub and locked packages from the official npm/Python package registries. Local development uses Node, esbuild, workerd and optional Playwright Chromium; npm lockfile integrity hashes pin the native build packages. None of those executables is bundled in the plugin. The opt-in local rehearsal runs one fixed synthetic Python receipt action after the real host approval gate allows it. |
-| Background work and waits | One lazy Python worker has a 64-entry queue; approval waits have two slots and host/plugin deadlines. Empty queues sleep without polling. Unload cancels and joins bounded work; explicit later tool calls resume durable recovery. App refreshes back off from 10 to 60 seconds, pause when hidden/offline, and stop for terminal runs. Desktop refreshes active state every 15 seconds while visible. Worker retention alarms run only for expiring state. |
+| Background work and waits | One lazy Python worker has a 64-entry queue; approval waits have two slots and host/plugin deadlines. Question waits last at most 25 seconds per call and do not block approvals. With `hermes notify webhooks on`, one listener thread accepts answer webhook deliveries on `inbound_webhook_port`. The `on_session_finalize` hook ends that session's lock-screen jobs as stopped. Empty queues sleep without polling. Unload cancels and joins bounded work; explicit later tool calls resume durable recovery. App refreshes back off from 10 to 60 seconds, pause when hidden/offline, and stop for terminal runs. Desktop refreshes active state every 15 seconds while visible. Worker retention alarms run only for expiring state. |
 | Stored credentials and content | The runtime keeps the two Hermes-resolved tokens in process memory; the plugin does not write them to its journal or snapshot. `HERMES_NOTIFY_PUBLISH_TOKEN` is optional unless publishing to the Worker. Worker secrets are operator-managed bindings, never browser assets. SQLite stores workspace content, replies, correlation and receipt data, plus hashes of browser session/binding tokens and pass IDs. Raw sign-in JWTs are not stored. See the bounds above and [Worker retention](docs/WORKER.md#hard-bounds-and-contract-clarifications). |
 | Telemetry and usage reporting | None is implemented by the plugin. Isolated Worker development disables Wrangler metrics and npm audit/funding requests. Hosting and Notify retain their own service behavior; no extra analytics endpoint is added. |
 
