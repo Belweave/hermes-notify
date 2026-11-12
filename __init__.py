@@ -6,10 +6,8 @@ def register(ctx):
     import logging
     import os
 
-    if not hasattr(ctx, "register_approval_transport"):
-        raise RuntimeError("This Hermes build lacks the public approval transport API")
     from .hermes_notify.runtime import SETTINGS, Runtime, profile_setting, resolve_secret
-    from .hermes_notify.tools import SCHEMAS, calling_session
+    from .hermes_notify.tools import PROMPT_SECTION, SCHEMAS, calling_session
 
     if hasattr(ctx, "register_cli_command"):
         from .hermes_notify.onboarding import register_cli
@@ -64,13 +62,32 @@ def register(ctx):
 
     # Recording/catalog contexts intentionally have no state. They still see every registration.
     ctx.on_unload(runtime.close if runtime else lambda: None)
-    ctx.register_approval_transport("notify", runtime.present if runtime else lambda request: request.respond("deny"))
+    if hasattr(ctx, "register_approval_transport"):
+        ctx.register_approval_transport("notify", runtime.present if runtime else lambda request: request.respond("deny"))
+    else:
+        # Messages, questions and progress still work; only command approvals need the newer API.
+        logging.getLogger("hermes_notify").warning(
+            "This Hermes version cannot send command approvals to Notify. Update Hermes to use "
+            "security.approval.transport: notify; notifications and questions work as before.")
+    if hasattr(ctx, "register_system_prompt_section"):
+        # Read once per new session: when to reach the phone, and the rules that keep it safe.
+        ctx.register_system_prompt_section("hermes-notify.rules", PROMPT_SECTION, max_chars=len(PROMPT_SECTION))
     if hasattr(ctx, "register_hook"):
         def observe_pre(**kwargs):
             refresh()
             return runtime.observe_pre(**kwargs)
         ctx.register_hook("pre_approval_request", observe_pre if runtime else lambda **_: None)
         ctx.register_hook("post_approval_response", runtime.observe_post if runtime else lambda **_: None)
+
+        def session_finalized(session_id=None, **_):
+            # The session will not report again: end its lock-screen jobs truthfully, now.
+            if runtime is None or not session_id:
+                return None
+            ended = runtime.stop_session_jobs(session_id=str(session_id), label="Stopped: session ended")
+            if ended:
+                return f"Notify: marked {ended} job{'s' if ended != 1 else ''} on your phone as stopped."
+            return None
+        ctx.register_hook("on_session_finalize", session_finalized)
     if hasattr(ctx, "register_tool"):
         for spec in SCHEMAS:
             def handle(args, _name=spec["name"], **kwargs):

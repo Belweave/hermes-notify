@@ -27,9 +27,12 @@ capabilities:
     - notify_ask
     - notify_replies
     - notify_status
+    - notify_progress
+    - notify_cancel
   provides_hooks:
     - pre_approval_request
     - post_approval_response
+    - on_session_finalize
   provides_middleware: []
   requires_env:
     - NOTIFY_API_TOKEN

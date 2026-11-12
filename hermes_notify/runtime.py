@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from .bridge import ApprovalBridge, TransportUnavailable
 from .client import API_BASE, NotifyClient, NotifyError, WorkerClient, https_url, identifier
 from .inbound import Inbound
+from .jobs import Jobs
 from .journal import Journal, encode
 from .ledger import Ledger
 from .publisher import Publisher
@@ -107,7 +108,7 @@ class Session:
         return bool(self.key and self.key == run.get("sessionKey"))
 
 
-class Runtime(Publisher, Progress, Replies):
+class Runtime(Publisher, Progress, Replies, Jobs):
     def __init__(self, data_dir, *, enabled=False, token="", publish_token="", settings=None,
                  test_url=None, test_worker_url=None, inject=None, webhook_secret=""):
         self.settings = settings if settings is not None else {}
@@ -194,6 +195,14 @@ class Runtime(Publisher, Progress, Replies):
         if row["injected"]:
             row["returned"] = True
         self.journal.put("reply", row["id"], row)
+
+    def _unlocked(self, operation):
+        """Run a long network wait without holding the tool lock held once by call()."""
+        self.lock.release()
+        try:
+            return operation()
+        finally:
+            self.lock.acquire()
 
     def config_error(self, name):
         """A refresh failed: keep the last configuration, but make the failure visible."""
@@ -297,7 +306,8 @@ class Runtime(Publisher, Progress, Replies):
                 if not session.identity:
                     raise NotifyError("A host-provided session is required", status=403)
                 methods = {"notify_release": self.release, "notify_publish_app": self.publish,
-                           "notify_send": self.send, "notify_ask": self.ask, "notify_replies": self.replies}
+                           "notify_send": self.send, "notify_ask": self.ask, "notify_replies": self.replies,
+                           "notify_progress": self.progress, "notify_cancel": self.cancel}
                 result = methods[name](args, session)
                 self.snapshot()
                 return {"ok": True, **result}

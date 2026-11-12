@@ -26,7 +26,8 @@ def main():
         from tools.registry import registry
         manager = get_plugin_manager()
         manager.discover_and_load()
-        names = ["notify_release", "notify_publish_app", "notify_send", "notify_ask", "notify_replies", "notify_status"]
+        names = ["notify_release", "notify_publish_app", "notify_send", "notify_ask", "notify_replies", "notify_status",
+                 "notify_progress", "notify_cancel"]
         assert all(registry.get_entry(n, scope=manager.scope_key) for n in names)
         with scoped_session_key("probe-route"):
             def call(name, args):
@@ -36,9 +37,13 @@ def main():
             call("notify_release", {"action": "begin", "project": "probe", "version": "1"})
             call("notify_publish_app", {"project": "probe"})
             call("notify_send", {"project": "probe", "body": "Synthetic registry update"})
-            call("notify_ask", {"project": "probe", "title": "Synthetic question", "prompt": "Reply?"})
+            asked = call("notify_ask", {"project": "probe", "title": "Synthetic question", "prompt": "Reply?"})
             call("notify_replies", {"project": "probe"})
+            call("notify_cancel", {"interaction_id": asked["interactionId"]})
+            call("notify_progress", {"action": "start", "title": "Synthetic job", "status": "Working"})
             call("notify_status", {})
+        sections = getattr(manager, "_system_prompt_sections", {})
+        assert "hermes-notify.rules" in sections, sorted(sections)
         manager.unload("hermes-notify")
         assert manager.get_approval_transport("notify") is None
         assert all(registry.get_entry(n, scope=manager.scope_key) is None for n in names)
