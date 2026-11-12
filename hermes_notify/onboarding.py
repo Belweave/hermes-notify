@@ -535,8 +535,8 @@ def cmd_webhooks(ctx, args):
         _say("Reachable from the internet: yes.")
     else:
         _say("Could not reach the URL yet. Hermes listens once it reloads; check again with `hermes notify status`.")
-    _say("Restart Hermes (and the gateway, if one runs) so it starts listening. Phone answers then")
-    _say("arrive in the session that asked, with no polling.")
+    _say("Running Hermes sessions and the gateway start listening on their next Notify call (restart the")
+    _say("gateway to listen right away). Answers then arrive in the session that asked, with no polling.")
     return 0
 
 
