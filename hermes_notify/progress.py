@@ -8,7 +8,8 @@ from .workspace import TERMINAL, digest, notify_clip
 
 class Progress:
     def _deliver_progress(self, run):
-        if self.stopped.is_set():
+        # The internal run behind plain notify_send/notify_ask calls has no progress to show.
+        if self.stopped.is_set() or run.get("auto"):
             return
         w = run["workspace"]
         project, rid = w["project"], w["runId"]

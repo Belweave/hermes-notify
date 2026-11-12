@@ -83,3 +83,12 @@ def test_upgrade_from_content_keys_does_not_revive_an_old_answer(pocket):
     again = rt.call("notify_ask", {"prompt": "Rotate keys?", "kind": "yes_no"}, S)
     assert again["interactionId"] != first["interactionId"] and again["status"] == "pending"
 
+
+def test_plain_send_never_starts_a_live_activity(pocket):
+    rt, mock, _ = pocket
+    rt.settings["progress_enabled"] = True
+    assert rt.call("notify_send", {"body": "Tests passed"}, S)["ok"]
+    assert rt.call("notify_ask", {"prompt": "Merge?", "kind": "yes_no"}, S)["ok"]
+    assert rt.queue.drain(10)
+    assert mock.count("POST", "/api/agent/activities") == 0
+    assert not rt.call("notify_status", {}, S)["runs"]

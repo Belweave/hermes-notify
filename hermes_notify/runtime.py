@@ -264,12 +264,11 @@ class Runtime(Publisher, Progress, Replies):
         current = self.journal.get("run", mapping["runId"]) if mapping.get("runId") else None
         if current and current["workspace"]["status"] not in TERMINAL and not current.get("auto"):
             raise NotifyError("Another session owns this project's active release; use a different project name", status=409)
+        # A lightweight run: no Live Activity, no hosted workspace, and a later real release
+        # from any session may replace it.
         self.release({"action": "begin", "project": project, "version": "updates", "name": project,
-                      "stage": "Updates"}, session)
-        run = self._run({"project": project}, session)
-        run["auto"] = True  # A later real release from this session may replace it.
-        self.journal.put("run", run["workspace"]["runId"], run)
-        return run
+                      "stage": "Updates"}, session, auto=True)
+        return self._run({"project": project}, session)
 
     def _save_run(self, run):
         validate(run["workspace"])
@@ -313,7 +312,7 @@ class Runtime(Publisher, Progress, Replies):
             self._background_failure("Invalid input or local storage unavailable")
             return {"ok": False, "error": "Invalid input or local storage unavailable"}
 
-    def release(self, args, session):
+    def release(self, args, session, *, auto=False):
         action = args.get("action")
         project = slug(args.get("project"))
         if action == "begin":
@@ -340,9 +339,12 @@ class Runtime(Publisher, Progress, Replies):
                  "updatedAt": now(), "appId": mapping.get("appId"), "approval": None}
             w.update({k: args[k] for k in EDITABLE if k in args})
             run = {"workspace": validate(w), "sessionKey": session.key, "sessionId": session.id}
+            if auto:
+                run["auto"] = True
             self._save_run(run)
             self.journal.put("project", project, mapping | {"project": project, "runId": rid})
-            self.queue.submit(("progress", rid), None)
+            if not auto:
+                self.queue.submit(("progress", rid), None)
             return {"workspace": w}
         run = self._run(args, session)
         w = run["workspace"]
@@ -516,7 +518,7 @@ class Runtime(Publisher, Progress, Replies):
                 if record.get("state") == "not_configured":
                     self.journal.delete("delivery", record["project"])
         value = {"schemaVersion": 1, "configured": configured,
-                 "runs": [r["workspace"] for r in self.journal.all("run")[:10]],
+                 "runs": [r["workspace"] for r in self.journal.all("run") if not r.get("auto")][:10],
                  "pending": [{"requestId": a["requestId"], "title": a["title"], "status": a["status"]}
                              for a in self.journal.all("approval")[:30]],
                  "pendingQuestions": self.pending_questions(),
