@@ -281,4 +281,4 @@ def test_older_hermes_without_approval_transport_still_registers_messaging(tmp_p
                           register_hook=lambda *a: None, on_unload=lambda fn: None)
     load_plugin().register(ctx)
     assert {"notify_send", "notify_ask", "notify_progress"} <= set(tools)
-    assert "Update Hermes" in caplog.text
+    assert "hermes update" in caplog.text

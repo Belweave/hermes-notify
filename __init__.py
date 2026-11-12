@@ -67,7 +67,7 @@ def register(ctx):
     else:
         # Messages, questions and progress still work; only command approvals need the newer API.
         logging.getLogger("hermes_notify").warning(
-            "This Hermes version cannot send command approvals to Notify. Update Hermes to use "
+            "This Hermes version cannot send command approvals to Notify. Run `hermes update` to use "
             "security.approval.transport: notify; notifications and questions work as before.")
     if hasattr(ctx, "register_system_prompt_section"):
         # Read once per new session: when to reach the phone, and the rules that keep it safe.

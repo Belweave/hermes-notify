@@ -41,6 +41,22 @@ class NotifyError(Exception):
         return result
 
 
+def explain(status, required=(), retry=None):
+    """One sentence an agent can relay: what failed and the user's fix. Never server text."""
+    if status == 401:
+        return ("Notify rejected the saved key (HTTP 401): it expired or was revoked. "
+                "Ask the user to run `hermes notify setup --reauth` in a terminal")
+    if status == 403:
+        missing = f" ({', '.join(required)})" if required else ""
+        return (f"The saved Notify key lacks a permission{missing} (HTTP 403). "
+                "Ask the user to run `hermes notify setup --reauth` in a terminal")
+    if status == 429:
+        return f"Notify rate limit (HTTP 429). Retry the same call in {int(retry or 60)} seconds"
+    if status >= 500:
+        return f"Notify is temporarily unavailable (HTTP {status}). Retry the same call later"
+    return f"API returned HTTP {status}"
+
+
 class NoRedirects(HTTPRedirectHandler):
     def redirect_request(self, req, fp, code, msg, headers, newurl):
         return None
@@ -127,10 +143,11 @@ class JsonClient:
             retry = detail.get("retryAfterSeconds")
             if not isinstance(retry, (int, float)) or not 0 <= retry <= 86400:
                 retry = 60 if exc.code == 429 else None
-            raise NotifyError(f"API returned HTTP {exc.code}", status=exc.code, code=code,
+            raise NotifyError(explain(exc.code, required, retry), status=exc.code, code=code,
                               required=required, retry_after=retry) from None
         except (URLError, OSError, ValueError):
-            raise NotifyError("API connection failed") from None
+            raise NotifyError("Could not reach Notify (network error). Retry the same call later; "
+                              "it will not send a second copy") from None
         if len(payload) > MAX_RESPONSE_BYTES:
             raise NotifyError("API response exceeded size limit")
         try:
